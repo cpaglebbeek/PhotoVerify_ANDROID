@@ -34,6 +34,13 @@ export const generateCombinedProof = async (imageHash: string, anchorHash: strin
 
 export interface AnchorDeed {
   imageHash: string;
+  perceptualHash?: string;
+  metadata?: {
+    width: number;
+    height: number;
+    isColor: boolean;
+    aspectRatio: string;
+  };
   anchorHash: string;
   anchorSource: string;
   combinedProof: string;

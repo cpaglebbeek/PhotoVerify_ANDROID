@@ -1,0 +1,8 @@
+[
+  {
+    "version": "8.4",
+    "timestamp": "2026-03-14T22:30:00Z",
+    "commitHash": "afce199",
+    "changes": "Implementatie van Forensische Analyse en metadata vergelijking."
+  }
+]

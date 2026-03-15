@@ -3,6 +3,7 @@ import CopyrightCreator from './components/CopyrightCreator';
 import CopyrightVerifier from './components/CopyrightVerifier';
 import TimeAnchorCreator from './components/TimeAnchorCreator';
 import TimeAnchorVerifier from './components/TimeAnchorVerifier';
+import versionData from './version.json';
 import './App.css';
 
 type Mode = 'START' | 'PROTECT' | 'VERIFY';
@@ -13,8 +14,8 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>📸 De Foto-Kluis <small>v7.0</small></h1>
-        <p className="subtitle">Jouw foto's, voor altijd van jou.</p>
+        <h1>📸 De Foto-Kluis <small>v{versionData.current}</small></h1>
+        <p className="subtitle">Onzichtbare bescherming & Visueel DNA.</p>
       </header>
 
       <main className="wizard-container">
@@ -30,8 +31,9 @@ function App() {
                 <strong>De Foto-Kluis doet twee dingen:</strong>
               </p>
               <ol>
-                <li><strong>Onzichtbare Stempel:</strong> We zetten een geheime code in de pixels van je foto. Niemand ziet het, maar een computer kan het altijd terugvinden.</li>
-                <li><strong>Tijd-Bewijs:</strong> We maken een digitaal briefje dat bewijst dat jij de foto al had op de dag van vandaag. Zo kan niemand later liegen dat zij de eerste waren!</li>
+                <li><strong>Onzichtbare Stempel:</strong> We zetten een geheime code in de pixels. Zelfs als de foto wordt verkleind, blijft deze code vaak leesbaar.</li>
+                <li><strong>Visueel DNA (Nieuw!):</strong> We maken een 'DNA-test' van de inhoud. Dit bewijst dat het jouw foto is, zelfs als iemand de kleuren aanpast of de foto opslaat als een korrelige JPG.</li>
+                <li><strong>Tijd-Bewijs:</strong> We koppelen je foto aan een publiek event van vandaag. Zo staat de datum van jouw eigendom onweerlegbaar vast.</li>
               </ol>
             </div>
 
@@ -94,7 +96,7 @@ function App() {
       </main>
 
       <footer>
-        <p>&copy; 2026 De Foto-Kluis - Gebouwd voor echte makers</p>
+        <p>&copy; 2026 De Foto-Kluis v{versionData.current} - Gebouwd voor echte makers</p>
       </footer>
     </div>
   );
