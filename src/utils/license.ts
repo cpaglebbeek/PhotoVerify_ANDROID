@@ -15,12 +15,22 @@ const STORAGE_KEY = 'photovault_license_state';
  * Generates a unique hash tied to hardware (Native) or browser fingerprint (Web).
  */
 export const getDeviceHash = async (): Promise<string> => {
-  const info = await Device.getId();
-  const model = (await Device.getInfo()).model;
-  // Use string seed for sha256 to avoid type mismatch
-  const seed = `${info.identifier}_${model}_PV_SALT_2026`;
-  const hash = await sha256(seed);
-  return hash.toUpperCase().substring(0, 16);
+  try {
+    const info = await Device.getId();
+    const infoObj = await Device.getInfo();
+    const identifier = info.identifier || 'UNKNOWN_ID';
+    const model = infoObj.model || 'UNKNOWN_MODEL';
+    
+    // Use string seed for sha256 to avoid type mismatch
+    const seed = `${identifier}_${model}_PV_SALT_2026`;
+    const hash = await sha256(seed);
+    const shortHash = hash.toUpperCase().substring(0, 16);
+    console.log(`[License] Device Hash: ${shortHash} (from ${seed})`);
+    return shortHash;
+  } catch (err) {
+    console.error(`[License] Device Identification failed:`, err);
+    return 'DEVICE_ID_ERROR';
+  }
 };
 
 /**
@@ -28,6 +38,7 @@ export const getDeviceHash = async (): Promise<string> => {
  * Local-First: Checks localStorage first for valid, non-expired license.
  */
 export const checkLicense = async (hash: string, serverUrl: string, forceSync = false): Promise<LicenseStatus> => {
+  const sanitizedServerUrl = serverUrl.replace(/\/$/, '');
   const localState: LicenseStatus = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
   const now = Date.now();
   const GRACE_PERIOD = 24 * 60 * 60 * 1000; // 1 Day
@@ -41,14 +52,24 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
   }
 
   // 2. Sync Path: Try to retrieve from server
+  const fetchUrl = `${sanitizedServerUrl}/licenses/${hash}.json`;
+  console.log(`[License] Fetching: ${fetchUrl}`);
+  
   try {
-    const res = await fetch(`${serverUrl}/licenses/${hash}.json`, { cache: 'no-store' });
+    const res = await fetch(fetchUrl, { 
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    });
+    
     if (!res.ok) {
-      if (res.status === 404) throw new Error("ID not registered on server");
-      throw new Error("Server communication error");
+      console.warn(`[License] Server returned ${res.status}: ${res.statusText}`);
+      if (res.status === 404) throw new Error(`ID ${hash} not registered on server`);
+      throw new Error(`Server error: ${res.status} ${res.statusText}`);
     }
     
     const serverData = await res.json();
+    console.log(`[License] Success:`, serverData);
+    
     const newState: LicenseStatus = {
       active: serverData.active && serverData.expiry > now,
       expiry: serverData.expiry,
@@ -61,15 +82,25 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
     return newState;
   } catch (err: unknown) {
     const error = err as Error;
+    console.error(`[License] Fetch failed:`, error);
+    
     // 3. Fallback Path: If server fails, check if we can stay in offline grace period
     if (localState && localState.deviceHash === hash) {
       const timeSinceLastCheck = now - localState.lastCheck;
       if (timeSinceLastCheck < GRACE_PERIOD) {
         return { ...localState, message: "Offline Mode (Grace Period Active)" };
       }
-      return { ...localState, active: false, message: error.message || "Grace period expired. Connect to internet." };
+      return { ...localState, active: false, message: `Sync failed: ${error.message}` };
     }
     
-    return { active: false, expiry: 0, deviceHash: hash, lastCheck: 0, message: error.message || "Activation required." };
+    return { 
+      active: false, 
+      expiry: 0, 
+      deviceHash: hash, 
+      lastCheck: 0, 
+      message: error.message.includes('Failed to fetch') 
+        ? "Network error: Connection refused or CORS failure." 
+        : `Activation error: ${error.message}` 
+    };
   }
 };
