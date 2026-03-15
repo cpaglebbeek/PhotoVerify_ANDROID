@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoVault Sovereign Studio</title>
+    <style>
+        :root { --p-bg: #0f172a; --p-text: #f8fafc; }
+        body { font-family: 'Inter', system-ui; background: var(--p-bg); color: var(--p-text); margin: 0; display: flex; height: 100vh; }
+        #sidebar { width: 450px; background: #1e293b; border-right: 1px solid #334155; padding: 20px; overflow-y: auto; }
+        #preview { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; gap: 20px; overflow-y: auto; background: #000; }
+        
+        .tab-btn { background: #334155; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; margin-right: 5px; }
+        .tab-btn.active { background: #60a5fa; }
+        
+        .control-group { margin-bottom: 25px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; }
+        h3 { margin-top: 0; font-size: 0.9rem; color: #60a5fa; text-transform: uppercase; letter-spacing: 1px; }
+        label { display: block; font-size: 0.75rem; color: #94a3b8; margin: 10px 0 5px; }
+        input, textarea { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; box-sizing: border-box; }
+        textarea { height: 80px; resize: vertical; font-family: inherit; }
+
+        .mock-device { border: 12px solid #334155; border-radius: 30px; background: #0f172a; overflow: hidden; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }
+        .mock-screen { padding: 20px; color: white; height: 100%; overflow-y: auto; }
+        
+        .toolbar { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; }
+        .btn-save { background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>🛠️ Sovereign Studio</h2>
+        <div style="margin-bottom: 20px;">
+            <button class="tab-btn active" onclick="showTab('ui')">UI / Style</button>
+            <button class="tab-btn" onclick="showTab('content')">Content</button>
+        </div>
+
+        <div id="ui-tab">
+            <div class="control-group">
+                <h3>Global Styles</h3>
+                <label>Accent Color</label>
+                <input type="color" id="ui-accent" onchange="updateUI()">
+                <label>Card Radius (px)</label>
+                <input type="number" id="ui-radius" onchange="updateUI()">
+            </div>
+        </div>
+
+        <div id="content-tab" style="display:none;">
+            <div class="control-group">
+                <h3>Main UI</h3>
+                <label>App Title</label>
+                <input type="text" id="ct-title" oninput="updateContent()">
+                <label>Tagline</label>
+                <textarea id="ct-tagline" oninput="updateContent()"></textarea>
+            </div>
+            <div class="control-group">
+                <h3>About Section</h3>
+                <label>Summary</label>
+                <textarea id="ct-about-sum" oninput="updateContent()"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="preview">
+        <div class="mock-device" style="width: 375px; height: 667px;">
+            <div class="mock-screen" id="phone-screen">
+                <h1 id="pv-title" style="font-size: 1.5rem; margin: 0;">PhotoVault</h1>
+                <p id="pv-tagline" style="font-size: 0.8rem; color: #94a3b8;"></p>
+                <div id="pv-card" style="background: #1e293b; padding: 15px; border-radius: 12px; margin-top: 20px; border: 1px solid #334155;">
+                    <h3 style="color: #60a5fa;">Welcome</h3>
+                    <p id="pv-desc" style="font-size: 0.85rem;"></p>
+                </div>
+                <button id="pv-btn" style="width: 100%; padding: 12px; border: none; background: #60a5fa; color: white; border-radius: 10px; margin-top: 10px; font-weight: bold;">Protect Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn-save" onclick="exportAll()">Export Configs (ZIP)</button>
+    </div>
+
+    <script>
+        let ui = {};
+        let content = {};
+
+        async function init() {
+            const uRes = await fetch('ui-config.json');
+            const cRes = await fetch('content-config.json');
+            ui = await uRes.json();
+            content = await cRes.json();
+
+            // Populate UI controls
+            document.getElementById('ui-accent').value = ui.themes.dark.accent;
+            document.getElementById('ui-radius').value = parseInt(ui.platforms.Mobile.Android.borderRadius);
+
+            // Populate Content controls
+            document.getElementById('ct-title').value = content.ui.title;
+            document.getElementById('ct-tagline').value = content.ui.tagline;
+            document.getElementById('ct-about-sum').value = content.about.summary;
+
+            updateUI();
+            updateContent();
+        }
+
+        function showTab(t) {
+            document.getElementById('ui-tab').style.display = t === 'ui' ? 'block' : 'none';
+            document.getElementById('content-tab').style.display = t === 'content' ? 'block' : 'none';
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase().includes(t)));
+        }
+
+        function updateUI() {
+            const accent = document.getElementById('ui-accent').value;
+            const radius = document.getElementById('ui-radius').value + 'px';
+            
+            document.getElementById('pv-btn').style.background = accent;
+            document.getElementById('pv-card').style.borderRadius = radius;
+            document.getElementById('pv-btn').style.borderRadius = radius;
+            
+            ui.themes.dark.accent = accent;
+            ui.platforms.Mobile.Android.borderRadius = radius;
+        }
+
+        function updateContent() {
+            const title = document.getElementById('ct-title').value;
+            const tagline = document.getElementById('ct-tagline').value;
+            
+            document.getElementById('pv-title').innerText = title;
+            document.getElementById('pv-tagline').innerText = tagline;
+            
+            content.ui.title = title;
+            content.ui.tagline = tagline;
+        }
+
+        function exportAll() {
+            const download = (data, name) => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = name; a.click();
+            };
+            download(ui, 'ui-config.json');
+            setTimeout(() => download(content, 'content-config.json'), 500);
+        }
+
+        init();
+    </script>
+</body>
+</html>

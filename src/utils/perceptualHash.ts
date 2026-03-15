@@ -57,6 +57,12 @@ export const generatePerceptualHashDetailed = (imageData: ImageData): PHashResul
   return { hash: hashHex.toUpperCase(), bits };
 };
 
+export const generateFingerprint = async (imageData: ImageData): Promise<string> => {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', imageData.data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 export const hashToBits = (hash: string): number[] => {
   const bits: number[] = [];
   for (let i = 0; i < hash.length; i++) {
@@ -85,7 +91,7 @@ export const compareHashesElastic = (bits1: number[], bits2: number[]): { score:
   for (let offsetY = -2; offsetY <= 2; offsetY++) {
     for (let offsetX = -2; offsetX <= 2; offsetX++) {
       let matches = 0;
-      let shiftedBits = new Array(256).fill(0);
+      const shiftedBits = new Array(256).fill(0);
 
       for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {

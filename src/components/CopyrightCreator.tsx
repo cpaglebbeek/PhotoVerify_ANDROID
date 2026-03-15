@@ -1,17 +1,23 @@
-import { useState } from 'react';
-import { injectVirtualData, extractVirtualData, generateFingerprint } from '../utils/virtualStorage';
+import { useState, useEffect } from 'react';
+import { injectVirtualDataAsync, extractVirtualDataAsync } from '../utils/virtualStorage';
+import { generateFingerprint } from '../utils/perceptualHash';
+import { saveFile } from '../utils/fileSaver';
 
 interface Props {
   image: HTMLImageElement | null;
+  filename: string;
+  uid: string;
+  setUid: (u: string) => void;
+  onStart: () => void;
+  onProgress: (p: number) => void;
+  onEnd: () => void;
 }
 
-export default function CopyrightCreator({ image }: Props) {
-  const [uid, setUid] = useState<string>('A1B2C3');
+export default function CopyrightCreator({ image, filename, uid, setUid, onStart, onProgress, onEnd }: Props) {
   const [injectedDataUrl, setInjectedDataUrl] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-  // Auto-generate fingerprint when image is provided
-  useState(() => {
+  useEffect(() => {
     if (image) {
       const canvas = document.createElement('canvas');
       canvas.width = image.width; canvas.height = image.height;
@@ -19,32 +25,31 @@ export default function CopyrightCreator({ image }: Props) {
       ctx.drawImage(image, 0, 0);
       generateFingerprint(ctx.getImageData(0, 0, canvas.width, canvas.height)).then(setFingerprint);
     }
-  });
+  }, [image]);
 
-  const injectData = () => {
+  const injectData = async () => {
     if (!image) return;
+    onStart();
+    
     const canvas = document.createElement('canvas');
     canvas.width = image.width; canvas.height = image.height;
-    // Use sRGB to prevent browser color mangling
     const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, 0, 0);
     
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const watermarkedData = injectVirtualData(imageData, uid);
+    const watermarkedData = await injectVirtualDataAsync(imageData, uid, onProgress);
     ctx.putImageData(watermarkedData, 0, 0);
 
-    // Verify immediately on the same context
     const testData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const testResult = extractVirtualData(testData);
+    const testResult = await extractVirtualDataAsync(testData, () => {});
     
     if (testResult && testResult.uid === uid.toUpperCase()) {
-      console.log(`Self-Test Success: UID ${testResult.uid} verified at 100% scale.`);
       setInjectedDataUrl(canvas.toDataURL('image/png'));
     } else {
-      console.error("Self-Test Failed.", { expected: uid, found: testResult?.uid, diagnostics: testResult?.diagnostics });
-      alert(`Self-test failed. The image structure may be incompatible with this protection level. (Found: ${testResult?.uid || 'None'})`);
+      alert("Self-test failed. Try a higher quality image.");
     }
+    onEnd();
   };
 
   return (
@@ -76,9 +81,11 @@ export default function CopyrightCreator({ image }: Props) {
       {injectedDataUrl && (
         <div className="results success">
           <h3>Stamp Embedded!</h3>
-          <p>This version now contains your secret code. Download it below.</p>
+          <p>This version now contains your secret code.</p>
           <div className="download-links">
-            <a href={injectedDataUrl} download={`stamped_${uid}.png`} className="download-btn">Download Protected Photo</a>
+            <button onClick={() => saveFile(injectedDataUrl, `${uid}_${filename}`)} className="download-btn">
+              Download Protected Photo
+            </button>
           </div>
         </div>
       )}

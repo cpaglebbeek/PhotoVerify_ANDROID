@@ -1,13 +1,9 @@
 /**
- * Virtual Storage Utility v5.2 - Robust Elastic Anchor
- * 
- * 1. Scale-First Recovery: Prioritizes 1.0 scale for faster self-tests.
- * 2. Fine-Grained Sync: Reduced sync search step for better alignment.
- * 3. Enhanced Diagnostics: Returns info even on partial failures.
+ * Virtual Storage Utility v5.3 - Async Progress Architecture
  */
 
 const CELL_SIZE = 32;
-const DELTA = 30; // Increased for better resistance to interpolation
+const DELTA = 30; 
 const MAGIC_NUMBER = 0x564D; 
 const SYNC_PATTERN = 0xAA55AA55; 
 const HEADER_SIZE = 8; 
@@ -22,24 +18,16 @@ export interface VirtualMemory {
   diagnostics?: string;
 }
 
-export const generateFingerprint = async (imageData: ImageData): Promise<string> => {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', imageData.data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
+const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const getBlockCoreAvg = (data: Uint8ClampedArray, x: number, y: number, width: number, height: number, cellSize: number): number => {
   let sum = 0, count = 0;
-  const core = cellSize * 0.5;
-  const off = cellSize * 0.25;
-  
+  const core = cellSize * 0.5, off = cellSize * 0.25;
   for (let by = 0; by < core; by++) {
     for (let bx = 0; bx < core; bx++) {
-      const px = Math.floor(x + off + bx);
-      const py = Math.floor(y + off + by);
+      const px = Math.floor(x + off + bx), py = Math.floor(y + off + by);
       if (px >= 0 && px < width && py >= 0 && py < height) {
-        const idx = (py * width + px) * 4;
-        sum += data[idx + 2];
+        sum += data[(py * width + px) * 4 + 2];
         count++;
       }
     }
@@ -58,17 +46,7 @@ const modulateBlock = (data: Uint8ClampedArray, x: number, y: number, width: num
   }
 };
 
-const getBitCoordsScaled = (bitIdx: number, width: number, startX: number, startY: number, cellSize: number) => {
-  const bitStep = cellSize * 2;
-  const perRow = Math.floor((width - startX) / bitStep);
-  if (perRow <= 0) return { x: 0, y: 999999 }; 
-  return { 
-    x: startX + (bitIdx % perRow) * bitStep, 
-    y: startY + Math.floor(bitIdx / perRow) * cellSize 
-  };
-};
-
-export const injectVirtualData = (imageData: ImageData, uidHex: string): ImageData => {
+export const injectVirtualDataAsync = async (imageData: ImageData, uidHex: string, onProgress: (p: number) => void): Promise<ImageData> => {
   const { data, width, height } = imageData;
   const hex = uidHex.padStart(6, '0').slice(0, 6);
   const bytes = new Uint8Array(PAYLOAD_BYTES);
@@ -86,48 +64,44 @@ export const injectVirtualData = (imageData: ImageData, uidHex: string): ImageDa
     const bit = (fullPayload[Math.floor((s % streamBits) / 8)] >> (7 - (s % 8))) & 1;
     const bitStep = CELL_SIZE * 2;
     const perRow = Math.floor(width / bitStep);
-    const x = (s % perRow) * bitStep;
-    const y = Math.floor(s / perRow) * CELL_SIZE;
+    const x = (s % perRow) * bitStep, y = Math.floor(s / perRow) * CELL_SIZE;
     
     if (x + bitStep > width || y + CELL_SIZE > height) break;
     modulateBlock(data, x, y, width, height, bit === 1 ? DELTA : -DELTA);
     modulateBlock(data, x + CELL_SIZE, y, width, height, bit === 1 ? -DELTA : DELTA);
+
+    if (s % 50 === 0) {
+      onProgress(Math.floor((s / totalSlots) * 100));
+      await yieldToMain();
+    }
   }
+  onProgress(100);
   return imageData;
 };
 
-export const extractVirtualData = (imageData: ImageData): VirtualMemory | null => {
+export const extractVirtualDataAsync = async (imageData: ImageData, onProgress: (p: number) => void): Promise<VirtualMemory | null> => {
   const { data, width, height } = imageData;
   const streamBits = TOTAL_STORE_BYTES * 8;
+  let bestScale = 1.0, bestX = 0, bestY = 0, syncFound = false, maxSyncMatches = 0;
 
-  let bestScale = 1.0, bestX = 0, bestY = 0, syncFound = false;
-  let maxSyncMatches = 0;
-
-  // We check 1.0 first, then a range from 0.8 to 1.2
-  const scalesToTry = [1.0];
-  for (let s = 0.8; s <= 1.21; s += 0.01) {
-    if (Math.abs(s - 1.0) > 0.001) scalesToTry.push(s);
-  }
-
-  for (const scale of scalesToTry) {
+  const scales = [1.0, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99, 1.01, 1.02, 1.05, 1.1, 1.15, 1.2];
+  for (let i = 0; i < scales.length; i++) {
+    const scale = scales[i];
     const currentCellSize = CELL_SIZE * scale;
-    // Step of 2 instead of 4 for better precision
+    onProgress(Math.floor((i / scales.length) * 50));
+    await yieldToMain();
+
     for (let sy = 0; sy < Math.min(currentCellSize, 16); sy += 2) {
       for (let sx = 0; sx < Math.min(currentCellSize, 16); sx += 2) {
         let matches = 0;
-        for (let i = 0; i < 32; i++) {
-          const coords = getBitCoordsScaled(i, width, sx, sy, currentCellSize);
-          if (coords.y + currentCellSize > height) break;
-          const avgA = getBlockCoreAvg(data, coords.x, coords.y, width, height, currentCellSize);
-          const avgB = getBlockCoreAvg(data, coords.x + currentCellSize, coords.y, width, height, currentCellSize);
-          const bit = avgA > avgB ? 1 : 0;
-          const expected = (SYNC_PATTERN >>> (31 - i)) & 1;
-          if (bit === expected) matches++;
+        const bitStep = currentCellSize * 2;
+        const perRow = Math.floor((width - sx) / bitStep);
+        for (let j = 0; j < 32; j++) {
+          const cx = sx + (j % perRow) * bitStep, cy = sy + Math.floor(j / perRow) * currentCellSize;
+          if (cy + currentCellSize > height) break;
+          if ((getBlockCoreAvg(data, cx, cy, width, height, currentCellSize) > getBlockCoreAvg(data, cx + currentCellSize, cy, width, height, currentCellSize) ? 1 : 0) === ((SYNC_PATTERN >>> (31 - j)) & 1)) matches++;
         }
-        if (matches > maxSyncMatches) {
-          maxSyncMatches = matches;
-          bestScale = scale; bestX = sx; bestY = sy;
-        }
+        if (matches > maxSyncMatches) { maxSyncMatches = matches; bestScale = scale; bestX = sx; bestY = sy; }
         if (matches >= 30) { syncFound = true; break; }
       }
       if (syncFound) break;
@@ -138,17 +112,21 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
   if (maxSyncMatches < 24) return null;
 
   const finalCellSize = CELL_SIZE * bestScale;
-  const totalSlots = Math.floor((width - bestX) / (finalCellSize * 2)) * Math.floor((height - bestY) / finalCellSize);
-  
+  const bitStep = finalCellSize * 2;
+  const perRow = Math.floor((width - bestX) / bitStep);
+  const totalSlots = perRow * Math.floor((height - bestY) / finalCellSize);
   const bitVotes: { [key: number]: number }[] = new Array(streamBits).fill(0).map(() => ({ 0: 0, 1: 0 }));
+
   for (let s = 0; s < totalSlots; s++) {
-    const coords = getBitCoordsScaled(s, width, bestX, bestY, finalCellSize);
-    if (coords.y + finalCellSize > height) break;
-    const avgA = getBlockCoreAvg(data, coords.x, coords.y, width, height, finalCellSize);
-    const avgB = getBlockCoreAvg(data, coords.x + finalCellSize, coords.y, width, height, finalCellSize);
-    const bit = avgA > avgB ? 1 : 0;
+    const cx = bestX + (s % perRow) * bitStep, cy = bestY + Math.floor(s / perRow) * finalCellSize;
+    if (cy + finalCellSize > height) break;
+    const bit = getBlockCoreAvg(data, cx, cy, width, height, finalCellSize) > getBlockCoreAvg(data, cx + finalCellSize, cy, width, height, finalCellSize) ? 1 : 0;
     const votes = bitVotes[s % streamBits];
     if (bit === 1) votes[1]++; else votes[0]++;
+    if (s % 100 === 0) {
+      onProgress(50 + Math.floor((s / totalSlots) * 50));
+      await yieldToMain();
+    }
   }
 
   const buffer = new Uint8Array(TOTAL_STORE_BYTES);
@@ -164,20 +142,11 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
     buffer[i] = byte;
   }
 
-  const magicMatch = ((buffer[4] << 8) | buffer[5]) === MAGIC_NUMBER;
-  if (!magicMatch) return null;
-
-  const hex = Array.from(buffer.slice(8))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('').toUpperCase();
-
+  if (((buffer[4] << 8) | buffer[5]) !== MAGIC_NUMBER) return null;
+  onProgress(100);
   return {
-    uid: hex,
-    timestamp: Date.now(),
-    confidence: (totalAgreement / streamBits),
-    scale: bestScale,
-    diagnostics: `Locked at ${(bestScale*100).toFixed(1)}% scale. Offset: (${bestX},${bestY}). Sync: ${maxSyncMatches}/32.`
+    uid: Array.from(buffer.slice(8)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase(),
+    timestamp: Date.now(), confidence: (totalAgreement / streamBits), scale: bestScale,
+    diagnostics: `Locked at ${(bestScale*100).toFixed(1)}%.`
   };
 };
-
-export const calculateCapacity = (_width: number, _height: number): number => 6;

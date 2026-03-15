@@ -1,14 +1,14 @@
 [
   {
-    "version": "12.2",
-    "timestamp": "2026-03-15T04:30:00Z",
-    "commitHash": "PENDING",
-    "changes": "Massive 10-page Help expansion: Detailed scientific explanations."
+    "version": "13.0",
+    "timestamp": "2026-03-15T05:00:00Z",
+    "commitHash": "71374de",
+    "changes": "Mobile App Prep (Phase 1): PWA integration and iOS/Android manifest setup."
   },
   {
-    "version": "12.3",
-    "timestamp": "2026-03-15T04:45:00Z",
+    "version": "13.1",
+    "timestamp": "2026-03-15T05:15:00Z",
     "commitHash": "PENDING",
-    "changes": "Integrated 'Physical Border Stamp' concept across all Help and About sections for consistent Triple-Lock messaging."
+    "changes": "Added interactive 'Install App' button using the beforeinstallprompt event for PWA installation."
   }
 ]
