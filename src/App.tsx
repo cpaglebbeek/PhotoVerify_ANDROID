@@ -53,7 +53,7 @@ function App() {
   const [license, setLicense] = useState<LicenseStatus | null>(null);
   const [sharedImage, setSharedImage] = useState<HTMLImageElement | null>(null);
   const [sharedFilename, setSharedFilename] = useState<string>('photo.png');
-  const [sharedUid, setSharedUid] = useState<string>('A1B2C3');
+  const [sharedUid, setSharedUid] = useState<string>('000001');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [processingMsg, setProcessingMsg] = useState('Processing...');
@@ -182,39 +182,59 @@ function App() {
 
   const runOneClickShield = async () => {
     if (!sharedImage) return;
-    const code = prompt("Confirm Stamp Code:", sharedUid);
-    if (!code || code.length !== 6) return;
+    const code = prompt("Confirm Stamp Code:", sharedUid || 'A1B2C3');
+    if (!code || code.length !== 6) {
+      alert("Invalid code. Must be 6 characters.");
+      return;
+    }
     const finalCode = code.toUpperCase();
     setSharedUid(finalCode);
+    
+    // Memory Safety Check: if image is huge, we need to handle carefully or downscale
+    const MAX_DIM = 4096;
+    let targetWidth = sharedImage.width;
+    let targetHeight = sharedImage.height;
+    
+    if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
+      const ratio = Math.min(MAX_DIM / targetWidth, MAX_DIM / targetHeight);
+      targetWidth = Math.floor(targetWidth * ratio);
+      targetHeight = Math.floor(targetHeight * ratio);
+      console.warn(`[App] Image too large (${sharedImage.width}x${sharedImage.height}), downscaling to ${targetWidth}x${targetHeight} for stability.`);
+      alert("Note: Large image detected. Scaling down slightly for processing stability.");
+    }
+
     startProc("Shielding Image...");
+    await new Promise(r => setTimeout(r, 150)); 
 
     const canvas = document.createElement('canvas');
-    canvas.width = sharedImage.width; canvas.height = sharedImage.height;
+    canvas.width = targetWidth; canvas.height = targetHeight;
     const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })!;
-    ctx.drawImage(sharedImage, 0, 0);
+    ctx.drawImage(sharedImage, 0, 0, targetWidth, targetHeight);
 
     const borderCanvas = document.createElement('canvas');
-    borderCanvas.width = canvas.width; borderCanvas.height = canvas.height;
+    borderCanvas.width = targetWidth; borderCanvas.height = targetHeight;
     const bCtx = borderCanvas.getContext('2d')!;
-    bCtx.drawImage(sharedImage, 0, 0, canvas.width, 1, 0, 0, canvas.width, 1);
-    bCtx.drawImage(sharedImage, 0, canvas.height - 1, canvas.width, 1, 0, canvas.height - 1, canvas.width, 1);
-    bCtx.drawImage(sharedImage, 0, 1, 1, canvas.height - 2, 0, 1, 1, canvas.height - 2);
-    bCtx.drawImage(sharedImage, canvas.width - 1, 1, 1, canvas.height - 2, canvas.width - 1, 1, 1, canvas.height - 2);
+    // Extract border from the potentially scaled version
+    bCtx.drawImage(canvas, 0, 0, targetWidth, 1, 0, 0, targetWidth, 1);
+    bCtx.drawImage(canvas, 0, targetHeight - 1, targetWidth, 1, 0, targetHeight - 1, targetWidth, 1);
+    bCtx.drawImage(canvas, 0, 1, 1, targetHeight - 2, 0, 1, 1, targetHeight - 2);
+    bCtx.drawImage(canvas, targetWidth - 1, 1, 1, targetHeight - 2, targetWidth - 1, 1, 1, targetHeight - 2);
 
     const interiorCanvas = document.createElement('canvas');
-    interiorCanvas.width = canvas.width; interiorCanvas.height = canvas.height;
+    interiorCanvas.width = targetWidth - 2; interiorCanvas.height = targetHeight - 2;
     const iCtx = interiorCanvas.getContext('2d')!;
-    iCtx.drawImage(sharedImage, 0, 0);
-    iCtx.clearRect(0, 0, canvas.width, 1); iCtx.clearRect(0, canvas.height - 1, canvas.width, 1);
-    iCtx.clearRect(0, 1, 1, canvas.height - 2); iCtx.clearRect(canvas.width - 1, 1, 1, canvas.height - 2);
-    const stamped = await injectVirtualDataAsync(iCtx.getImageData(0, 0, canvas.width, canvas.height), finalCode, (p) => setProgress(60 + p * 0.3));
+    iCtx.drawImage(canvas, 1, 1, targetWidth - 2, targetHeight - 2, 0, 0, targetWidth - 2, targetHeight - 2);
+    
+    const stamped = await injectVirtualDataAsync(iCtx.getImageData(0, 0, interiorCanvas.width, interiorCanvas.height), finalCode, (p) => setProgress(60 + p * 0.3));
     iCtx.putImageData(stamped, 0, 0);
 
     const hash = await sha256(stamped.data);
     const dna = generatePerceptualHashDetailed(stamped);
     const now = Date.now();
     const deed = { imageHash: hash, perceptualHash: dna.hash, timestamp: now, combinedProof: await generateCombinedProof(hash, "AUTO") };
+    
     await bundleEvidence(canvas.toDataURL('image/png'), borderCanvas.toDataURL('image/png'), interiorCanvas.toDataURL('image/png'), deed, `${finalCode}_${sharedFilename}`);
+    
     endProc();
     alert("ZIP Bundle Saved!");
     setMode('START');

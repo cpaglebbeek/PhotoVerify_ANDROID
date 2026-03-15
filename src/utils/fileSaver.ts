@@ -7,33 +7,27 @@ export const saveFile = async (dataUrl: string, fileName: string, type: 'image' 
   if (Capacitor.isNativePlatform()) {
     try {
       const base64Data = dataUrl.split(',')[1];
-      // Use Documents folder as primary storage for all evidence files
-      const targetDir = Directory.Documents;
-      
+      // Save to Cache first to share from there
+      const tempPath = fileName;
       await Filesystem.writeFile({
-        path: fileName,
+        path: tempPath,
         data: base64Data,
-        directory: targetDir,
-        recursive: true
+        directory: Directory.Cache
+      });
+
+      const fileUri = await Filesystem.getUri({ directory: Directory.Cache, path: tempPath });
+      
+      // For ZIP files (deeds), we always use Share to give the user "Save to Downloads" option
+      await Share.share({
+        title: fileName,
+        url: fileUri.uri,
+        dialogTitle: 'Save PhotoVerify Bundle'
       });
 
       addToHistory({ filename: fileName, type, dataUrl: type === 'deed' ? dataUrl : undefined });
-      alert(`Saved to Documents: ${fileName}`);
     } catch (err) {
-      console.warn('Native save failed, falling back to Share:', err);
-      try {
-        const path = fileName;
-        await Filesystem.writeFile({
-          path,
-          data: dataUrl.split(',')[1],
-          directory: Directory.Cache,
-        });
-        const fileUri = await Filesystem.getUri({ directory: Directory.Cache, path });
-        await Share.share({ title: fileName, url: fileUri.uri });
-        addToHistory({ filename: fileName, type });
-      } catch {
-        alert('Could not save file to device.');
-      }
+      console.error('Native save/share failed:', err);
+      alert('Could not save file. Ensure storage permissions are granted.');
     }
   } else {
     const link = document.createElement('a');
