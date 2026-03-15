@@ -1,8 +1,14 @@
 [
   {
-    "version": "8.4",
-    "timestamp": "2026-03-14T22:30:00Z",
-    "commitHash": "afce199",
-    "changes": "Implementatie van Forensische Analyse en metadata vergelijking."
+    "version": "12.2",
+    "timestamp": "2026-03-15T04:30:00Z",
+    "commitHash": "PENDING",
+    "changes": "Massive 10-page Help expansion: Detailed scientific explanations."
+  },
+  {
+    "version": "12.3",
+    "timestamp": "2026-03-15T04:45:00Z",
+    "commitHash": "PENDING",
+    "changes": "Integrated 'Physical Border Stamp' concept across all Help and About sections for consistent Triple-Lock messaging."
   }
 ]

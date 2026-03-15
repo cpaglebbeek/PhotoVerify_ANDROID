@@ -1,9 +1,9 @@
 import { useState, type ChangeEvent } from 'react';
-import { extractVirtualData, type VirtualMemory } from '../utils/virtualStorage';
+import { extractVirtualData } from '../utils/virtualStorage';
 
 export default function CopyrightVerifier() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [memory, setMemory] = useState<VirtualMemory | null>(null);
+  const [result, setResult] = useState<{ uid: string, confidence: number, diagnostics?: string } | null>(null);
   const [scanAttempted, setScanAttempted] = useState(false);
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -12,11 +12,7 @@ export default function CopyrightVerifier() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
-        img.onload = () => {
-          setImage(img);
-          setMemory(null);
-          setScanAttempted(false);
-        };
+        img.onload = () => { setImage(img); setScanAttempted(false); setResult(null); };
         img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
@@ -30,36 +26,36 @@ export default function CopyrightVerifier() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, 0, 0);
-    const result = extractVirtualData(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    setMemory(result);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = extractVirtualData(imageData);
+    if (data) {
+      setResult({ uid: data.uid, confidence: data.confidence, diagnostics: data.diagnostics });
+    } else {
+      setResult(null);
+    }
     setScanAttempted(true);
   };
 
   return (
     <div className="component-container">
-      <h2>2. Ironclad Scanner (v5.0)</h2>
-      <p>Recover 6-char Hex UID from image fragments using global majority voting.</p>
-      
       <div className="upload-section">
-        <label>Image to scan: <input type="file" accept="image/*" onChange={handleFileUpload} /></label>
+        <label>Photo to scan: <input type="file" accept="image/*" onChange={handleFileUpload} /></label>
       </div>
       
-      {image && (
-        <button onClick={scan} className="primary-button">Scan for Ironclad UID</button>
-      )}
+      {image && <button onClick={scan} className="primary-button">Scan for Invisible Stamp</button>}
 
-      {scanAttempted && memory && (
+      {scanAttempted && result && (
         <div className="verification-result success">
-          <h3>UID Recovered:</h3>
-          <p>Extracted UID: <strong style={{ fontSize: '2em', color: '#0f0', letterSpacing: '2px' }}>{memory.uid}</strong></p>
-          <p>Detection Confidence: <strong>{(memory.confidence * 100).toFixed(1)}%</strong></p>
-          <p style={{ fontSize: '0.85em', color: '#888' }}>{memory.diagnostics}</p>
+          <h3>Invisible Stamp Found!</h3>
+          <p>Found Code: <strong style={{ fontSize: '1.5em', color: '#0f0', letterSpacing: '2px' }}>{result.uid}</strong></p>
+          <p>Confidence: <strong>{(result.confidence * 100).toFixed(1)}%</strong></p>
+          <p style={{ fontSize: '0.8em', color: '#888' }}>{result.diagnostics}</p>
         </div>
       )}
 
-      {scanAttempted && !memory && (
+      {scanAttempted && !result && (
         <div className="verification-result error">
-          <p>No Ironclad UID detected in this image fragment.</p>
+          <p>No invisible stamp detected in this photo.</p>
         </div>
       )}
     </div>

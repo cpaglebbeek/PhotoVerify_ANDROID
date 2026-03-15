@@ -1,16 +1,16 @@
 /**
- * Virtual Storage Utility v5.1 - Elastic Anchor (Scale-Invariant)
+ * Virtual Storage Utility v5.2 - Robust Elastic Anchor
  * 
- * 1. Scale Recovery: Scanner brute-forces scales 0.8x to 1.2x to find sync.
- * 2. Sub-pixel Interpolation: Handles non-integer grid offsets from resizing.
- * 3. 24-bit Ironclad UID: Massive redundancy over the scaled surface.
+ * 1. Scale-First Recovery: Prioritizes 1.0 scale for faster self-tests.
+ * 2. Fine-Grained Sync: Reduced sync search step for better alignment.
+ * 3. Enhanced Diagnostics: Returns info even on partial failures.
  */
 
 const CELL_SIZE = 32;
-const DELTA = 28; // Slightly more punch for resized/interpolated pixels
+const DELTA = 30; // Increased for better resistance to interpolation
 const MAGIC_NUMBER = 0x564D; 
-const SYNC_PATTERN = 0xAA55AA55; // 32-bit for better scale detection
-const HEADER_SIZE = 8; // Sync(4) + Magic(2) + Pad(2)
+const SYNC_PATTERN = 0xAA55AA55; 
+const HEADER_SIZE = 8; 
 const PAYLOAD_BYTES = 3; 
 const TOTAL_STORE_BYTES = HEADER_SIZE + PAYLOAD_BYTES;
 
@@ -18,7 +18,7 @@ export interface VirtualMemory {
   uid: string;
   timestamp: number;
   confidence: number;
-  scale: number; // Detected scale
+  scale: number;
   diagnostics?: string;
 }
 
@@ -28,9 +28,6 @@ export const generateFingerprint = async (imageData: ImageData): Promise<string>
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-/**
- * Reads average with sub-pixel awareness.
- */
 const getBlockCoreAvg = (data: Uint8ClampedArray, x: number, y: number, width: number, height: number, cellSize: number): number => {
   let sum = 0, count = 0;
   const core = cellSize * 0.5;
@@ -64,7 +61,7 @@ const modulateBlock = (data: Uint8ClampedArray, x: number, y: number, width: num
 const getBitCoordsScaled = (bitIdx: number, width: number, startX: number, startY: number, cellSize: number) => {
   const bitStep = cellSize * 2;
   const perRow = Math.floor((width - startX) / bitStep);
-  if (perRow <= 0) return { x: 0, y: 999999 }; // Force break
+  if (perRow <= 0) return { x: 0, y: 999999 }; 
   return { 
     x: startX + (bitIdx % perRow) * bitStep, 
     y: startY + Math.floor(bitIdx / perRow) * cellSize 
@@ -106,13 +103,17 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
   let bestScale = 1.0, bestX = 0, bestY = 0, syncFound = false;
   let maxSyncMatches = 0;
 
-  // 1. SCALE RECOVERY: Try scales around 1.0 (and 0.5 to 1.5 for extreme cases)
-  // We search in steps of 0.5%
-  for (let scale = 0.8; scale <= 1.2; scale += 0.005) {
+  // We check 1.0 first, then a range from 0.8 to 1.2
+  const scalesToTry = [1.0];
+  for (let s = 0.8; s <= 1.21; s += 0.01) {
+    if (Math.abs(s - 1.0) > 0.001) scalesToTry.push(s);
+  }
+
+  for (const scale of scalesToTry) {
     const currentCellSize = CELL_SIZE * scale;
-    // For each scale, check a small window of offsets
-    for (let sy = 0; sy < currentCellSize; sy += 4) {
-      for (let sx = 0; sx < currentCellSize; sx += 4) {
+    // Step of 2 instead of 4 for better precision
+    for (let sy = 0; sy < Math.min(currentCellSize, 16); sy += 2) {
+      for (let sx = 0; sx < Math.min(currentCellSize, 16); sx += 2) {
         let matches = 0;
         for (let i = 0; i < 32; i++) {
           const coords = getBitCoordsScaled(i, width, sx, sy, currentCellSize);
@@ -127,17 +128,15 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
           maxSyncMatches = matches;
           bestScale = scale; bestX = sx; bestY = sy;
         }
-        if (matches >= 28) { syncFound = true; break; }
+        if (matches >= 30) { syncFound = true; break; }
       }
       if (syncFound) break;
     }
     if (syncFound) break;
   }
 
-  // If we didn't find a perfect sync, check if the best match we found is "good enough" (85%+)
-  if (maxSyncMatches < 26) return null;
+  if (maxSyncMatches < 24) return null;
 
-  // 2. EXTRACTION using the recovered scale and offset
   const finalCellSize = CELL_SIZE * bestScale;
   const totalSlots = Math.floor((width - bestX) / (finalCellSize * 2)) * Math.floor((height - bestY) / finalCellSize);
   
@@ -165,7 +164,8 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
     buffer[i] = byte;
   }
 
-  if (((buffer[4] << 8) | buffer[5]) !== MAGIC_NUMBER) return null;
+  const magicMatch = ((buffer[4] << 8) | buffer[5]) === MAGIC_NUMBER;
+  if (!magicMatch) return null;
 
   const hex = Array.from(buffer.slice(8))
     .map(b => b.toString(16).padStart(2, '0'))
@@ -176,7 +176,7 @@ export const extractVirtualData = (imageData: ImageData): VirtualMemory | null =
     timestamp: Date.now(),
     confidence: (totalAgreement / streamBits),
     scale: bestScale,
-    diagnostics: `Scale Locked at ${(bestScale*100).toFixed(1)}%. Sync: ${maxSyncMatches}/32.`
+    diagnostics: `Locked at ${(bestScale*100).toFixed(1)}% scale. Offset: (${bestX},${bestY}). Sync: ${maxSyncMatches}/32.`
   };
 };
 

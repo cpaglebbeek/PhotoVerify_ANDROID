@@ -1,60 +1,62 @@
-import { useState, type ChangeEvent } from 'react';
-import { injectVirtualData, generateFingerprint } from '../utils/virtualStorage';
+import { useState } from 'react';
+import { injectVirtualData, extractVirtualData, generateFingerprint } from '../utils/virtualStorage';
 
-export default function CopyrightCreator() {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
+interface Props {
+  image: HTMLImageElement | null;
+}
+
+export default function CopyrightCreator({ image }: Props) {
   const [uid, setUid] = useState<string>('A1B2C3');
   const [injectedDataUrl, setInjectedDataUrl] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = async () => {
-          setImage(img);
-          setInjectedDataUrl(null);
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width; canvas.height = img.height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0);
-          const f = await generateFingerprint(ctx.getImageData(0, 0, canvas.width, canvas.height));
-          setFingerprint(f);
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+  // Auto-generate fingerprint when image is provided
+  useState(() => {
+    if (image) {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width; canvas.height = image.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(image, 0, 0);
+      generateFingerprint(ctx.getImageData(0, 0, canvas.width, canvas.height)).then(setFingerprint);
     }
-  };
+  });
 
   const injectData = () => {
     if (!image) return;
     const canvas = document.createElement('canvas');
     canvas.width = image.width; canvas.height = image.height;
+    // Use sRGB to prevent browser color mangling
     const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, 0, 0);
+    
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const watermarkedData = injectVirtualData(imageData, uid);
     ctx.putImageData(watermarkedData, 0, 0);
-    setInjectedDataUrl(canvas.toDataURL('image/png'));
+
+    // Verify immediately on the same context
+    const testData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const testResult = extractVirtualData(testData);
+    
+    if (testResult && testResult.uid === uid.toUpperCase()) {
+      console.log(`Self-Test Success: UID ${testResult.uid} verified at 100% scale.`);
+      setInjectedDataUrl(canvas.toDataURL('image/png'));
+    } else {
+      console.error("Self-Test Failed.", { expected: uid, found: testResult?.uid, diagnostics: testResult?.diagnostics });
+      alert(`Self-test failed. The image structure may be incompatible with this protection level. (Found: ${testResult?.uid || 'None'})`);
+    }
   };
 
   return (
     <div className="component-container">
-      <h2>1. Ironclad UID Injector (v5.0)</h2>
-      <p>Optimized for extreme redundancy using a fixed 6-char Hex UID.</p>
-      
       <div className="input-group">
-        <label>Base Image: <input type="file" accept="image/*" onChange={handleImageUpload} /></label>
+        {!image && <p style={{ color: '#e74c3c' }}>Please upload a photo in the first step.</p>}
         
         {image && fingerprint && (
           <div className="memory-info" style={{ background: '#111', padding: '15px', borderLeft: '4px solid #646cff' }}>
             <p><strong>Original Fingerprint:</strong></p>
             <code style={{ fontSize: '0.8em', color: '#61dafb' }}>{fingerprint}</code>
-            <label style={{ marginTop: '10px' }}>UID (6 Hex Chars): 
+            <label style={{ marginTop: '10px' }}>Stamp Code (6 Hex Chars): 
               <input 
                 type="text" 
                 value={uid} 
@@ -68,15 +70,15 @@ export default function CopyrightCreator() {
       </div>
       
       {image && uid.length === 6 && (
-        <button onClick={injectData} className="primary-button">Generate Ironclad Protected Image</button>
+        <button onClick={injectData} className="primary-button">Embed Invisible Stamp</button>
       )}
 
       {injectedDataUrl && (
-        <div className="results">
-          <h3>Ironclad UID Embedded:</h3>
-          <p>Tiled redundancy across entire image. Survives heavy cropping & rotation.</p>
+        <div className="results success">
+          <h3>Stamp Embedded!</h3>
+          <p>This version now contains your secret code. Download it below.</p>
           <div className="download-links">
-            <a href={injectedDataUrl} download={`ironclad_${uid}.png`} className="download-btn">Download Protected Image</a>
+            <a href={injectedDataUrl} download={`stamped_${uid}.png`} className="download-btn">Download Protected Photo</a>
           </div>
         </div>
       )}
