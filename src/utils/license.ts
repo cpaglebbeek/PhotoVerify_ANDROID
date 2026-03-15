@@ -1,4 +1,5 @@
 import { Device } from '@capacitor/device';
+import { CapacitorHttp, type HttpResponse } from '@capacitor/core';
 import { sha256 } from './timeAnchor';
 
 export interface LicenseStatus {
@@ -53,21 +54,21 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
 
   // 2. Sync Path: Try to retrieve from server
   const fetchUrl = `${sanitizedServerUrl}/licenses/${hash}.json`;
-  console.log(`[License] Fetching: ${fetchUrl}`);
+  console.log(`[License] Fetching via CapacitorHttp: ${fetchUrl}`);
   
   try {
-    const res = await fetch(fetchUrl, { 
-      cache: 'no-store',
+    const res: HttpResponse = await CapacitorHttp.get({
+      url: fetchUrl,
       headers: { 'Accept': 'application/json' }
     });
     
-    if (!res.ok) {
-      console.warn(`[License] Server returned ${res.status}: ${res.statusText}`);
+    if (res.status !== 200) {
+      console.warn(`[License] Server returned ${res.status}`);
       if (res.status === 404) throw new Error(`ID ${hash} not registered on server`);
-      throw new Error(`Server error: ${res.status} ${res.statusText}`);
+      throw new Error(`Server error: ${res.status}`);
     }
     
-    const serverData = await res.json();
+    const serverData = res.data;
     console.log(`[License] Success:`, serverData);
     
     const newState: LicenseStatus = {
@@ -82,7 +83,7 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
     return newState;
   } catch (err: unknown) {
     const error = err as Error;
-    console.error(`[License] Fetch failed:`, error);
+    console.error(`[License] CapacitorHttp failed:`, error);
     
     // 3. Fallback Path: If server fails, check if we can stay in offline grace period
     if (localState && localState.deviceHash === hash) {
@@ -98,8 +99,8 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
       expiry: 0, 
       deviceHash: hash, 
       lastCheck: 0, 
-      message: error.message.includes('Failed to fetch') 
-        ? "Network error: Connection refused or CORS failure." 
+      message: error.message.toLowerCase().includes('failed') 
+        ? "Network error: Server unreachable or SSL error." 
         : `Activation error: ${error.message}` 
     };
   }

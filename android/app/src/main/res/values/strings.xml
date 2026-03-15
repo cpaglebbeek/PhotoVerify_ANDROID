@@ -1,8 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">PhotoVault (Roadhouse)</string>
+    <string name="app_name">PhotoVault (DEBUG-Roadhouse)</string>
     <string name="title_activity_main">PhotoVault</string>
     <string name="family_guy_phrase">Victory shall be mine!</string>
+    <string name="quagmire_phrase">Giggity Giggity Goo!</string>
     <string name="package_name">nl.fotolerant.photovault</string>
     <string name="custom_url_scheme">nl.fotolerant.photovault</string>
 </resources>

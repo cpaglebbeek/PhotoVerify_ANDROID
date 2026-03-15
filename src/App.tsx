@@ -59,6 +59,7 @@ function App() {
   const [processingMsg, setProcessingMsg] = useState('Processing...');
   const [content, setContent] = useState<ContentConfig | null>(null);
   const [uiConfig, setUiConfig] = useState<UIConfig | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   const [licenseServer, setLicenseServer] = useState(localStorage.getItem('license_server_url') || 'https://fotolerant.nl');
   const [uiUrl, setUiUrl] = useState(localStorage.getItem('ui_config_url') || 'ui-config.json');
@@ -66,6 +67,11 @@ function App() {
 
   const [isSyncing, setIsSyncing] = useState(false);
   const isInitialized = useRef(false);
+
+  const addLog = (msg: string) => {
+    console.log(msg);
+    setDebugLogs(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
 
   const applyUIConfig = useCallback((config: UIConfig, activeTheme: 'dark' | 'light') => {
     const root = document.documentElement;
@@ -82,34 +88,57 @@ function App() {
   }, []);
 
   const startup = useCallback(async (forceSync = false) => {
+    addLog(`[App] Startup. forceSync=${forceSync}`);
     setIsSyncing(true);
-    const hash = await getDeviceHash();
-    const lic = await checkLicense(hash, licenseServer, forceSync);
-    setLicense(lic);
-    setIsSyncing(false);
+    
+    try {
+      const hash = await getDeviceHash();
+      addLog(`[App] ID: ${hash} | Server: ${licenseServer}`);
+      
+      const lic = await checkLicense(hash, licenseServer, forceSync);
+      addLog(`[App] Result: ${lic.active ? 'ACTIVE' : 'INACTIVE'} - ${lic.message}`);
+      setLicense(lic);
+      setIsSyncing(false);
 
-    if (lic.active) {
-      try {
-        const [uRes, cRes] = await Promise.all([fetch(uiUrl), fetch(contentUrl)]);
-        const uData: UIConfig = await uRes.json();
-        const cData: ContentConfig = await cRes.json();
-        setUiConfig(uData);
-        setContent(cData);
-        applyUIConfig(uData, 'dark');
-        setMode('START');
-      } catch (e) {
-        console.error("Error loading remote config, falling back to local:", e);
-        const [lUi, lContent] = await Promise.all([fetch('ui-config.json'), fetch('content-config.json')]);
-        const uData: UIConfig = await lUi.json();
-        setUiConfig(uData);
-        setContent(await lContent.json());
-        applyUIConfig(uData, 'dark');
-        setMode('START');
+      if (lic.active) {
+        addLog(`[App] Loading remote configs...`);
+        try {
+          const [uRes, cRes] = await Promise.all([
+            fetch(uiUrl).catch(e => { addLog(`[App] UI fetch failed: ${e.message}`); throw e; }),
+            fetch(contentUrl).catch(e => { addLog(`[App] Content fetch failed: ${e.message}`); throw e; })
+          ]);
+          
+          const uData: UIConfig = await uRes.json();
+          const cData: ContentConfig = await cRes.json();
+          addLog("[App] Configs loaded.");
+          
+          setUiConfig(uData);
+          setContent(cData);
+          applyUIConfig(uData, 'dark');
+          setMode('START');
+        } catch (e) {
+          addLog(`[App] Remote config failed, using local fallback.`);
+          const [lUi, lContent] = await Promise.all([fetch('ui-config.json'), fetch('content-config.json')]);
+          const uData: UIConfig = await lUi.json();
+          setUiConfig(uData);
+          setContent(await lContent.json());
+          applyUIConfig(uData, 'dark');
+          setMode('START');
+        }
+      } else {
+        addLog(`[App] Activation required: ${lic.message}`);
       }
+    } catch (err) {
+      const error = err as Error;
+      addLog(`[App] Fatal: ${error.message}`);
+      setIsSyncing(false);
     }
   }, [licenseServer, uiUrl, contentUrl, applyUIConfig]);
 
-  const manualSync = () => startup(true);
+  const manualSync = () => {
+    setDebugLogs([]);
+    startup(true);
+  };
 
   useEffect(() => {
     if (!isInitialized.current) {
@@ -193,22 +222,34 @@ function App() {
 
   if (mode === 'LICENSE_CHECK') {
     return (
-      <div className="App" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a' }}>
-        <div className="card-glass text-center" style={{ maxWidth: '400px' }}>
+      <div className="App" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '20px' }}>
+        <div className="card-glass text-center" style={{ maxWidth: '450px', width: '100%' }}>
           <span style={{ fontSize: '4rem' }}>🛡️</span>
           <h2>Activation Required</h2>
+          
           <div style={{ background: '#000', padding: '15px', borderRadius: '10px', margin: '20px 0', border: '1px solid #334155' }}>
+            <small style={{ color: 'var(--text-dim)', display: 'block', marginBottom: '5px' }}>YOUR DEVICE ID</small>
             <code style={{ fontSize: '1.2rem', color: '#60a5fa', letterSpacing: '2px' }}>{license?.deviceHash || '...'}</code>
           </div>
+
+          <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left', border: '1px solid #1e293b' }}>
+            <small style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '5px', borderBottom: '1px solid #1e293b', paddingBottom: '3px' }}>VERBOSE NETWORK LOG</small>
+            <div style={{ maxHeight: '150px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.75rem', color: '#38bdf8' }}>
+              {debugLogs.length === 0 ? <span style={{ color: '#475569' }}>Waiting for sync...</span> : debugLogs.map((log, i) => (
+                <div key={i} style={{ marginBottom: '2px', borderLeft: '2px solid #0ea5e9', paddingLeft: '5px' }}>{log}</div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
             <button className="btn btn-primary" onClick={copyHash} style={{ width: '100%' }}>📋 Copy ID</button>
             <button className="btn btn-nav btn-success" onClick={manualSync} disabled={isSyncing} style={{ width: '100%', padding: '12px' }}>
               {isSyncing ? '⌛ Syncing...' : '🔄 Sync with Server'}
             </button>
           </div>
-          {license?.message && <p style={{ marginTop: '15px', color: license.active ? '#2ecc71' : '#ef4444' }}>{license.message}</p>}
+          {license?.message && <p style={{ marginTop: '15px', color: license.active ? '#2ecc71' : '#ef4444', fontSize: '0.9rem' }}>{license.message}</p>}
           <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '20px' }}>
-            Once you activate your ID, click Sync to unlock.
+            HTTPS is required. If using a local server, ensure CORS is enabled.
           </p>
         </div>
       </div>
