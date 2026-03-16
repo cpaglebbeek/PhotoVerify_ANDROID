@@ -1,5 +1,11 @@
 [
   {
+    "version": "1.0.5",
+    "timestamp": "2026-03-16T23:00:00Z",
+    "commitHash": "f3c3388",
+    "changes": "Fix physical border mismatch in ZIP verification and resolve build issues for v1.0.5 (Sovereign_Input)."
+  },
+  {
     "version": "13.0",
     "timestamp": "2026-03-15T05:00:00Z",
     "commitHash": "71374de",
