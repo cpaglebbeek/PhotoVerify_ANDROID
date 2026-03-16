@@ -42,6 +42,12 @@ export default function CopyrightCreator({ image, filename, uid, setUid, onStart
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, 0, 0);
     
+    // Visual Stamp: Draw a visible 1-pixel rectangle around the entire image
+    // MUST BE DONE BEFORE BORDER/INTERIOR EXTRACTION so they match the bundled original
+    ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)'; // pv-accent with transparency
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, targetWidth - 1, targetHeight - 1);
+
     // Border logic for bundle
     const borderCanvas = document.createElement('canvas');
     borderCanvas.width = targetWidth; borderCanvas.height = targetHeight;
@@ -59,11 +65,6 @@ export default function CopyrightCreator({ image, filename, uid, setUid, onStart
     const dna = generatePerceptualHashDetailed(iCtx.getImageData(0, 0, interiorCanvas.width, interiorCanvas.height));
     const stamped = await injectVirtualDataAsync(iCtx.getImageData(0, 0, interiorCanvas.width, interiorCanvas.height), uid, (p) => onProgress(60 + p * 0.3));
     iCtx.putImageData(stamped, 0, 0);
-
-    // Visual Stamp: Draw a visible 1-pixel rectangle around the entire image
-    ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)'; // pv-accent with transparency
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, targetWidth - 1, targetHeight - 1);
 
     const hash = await sha256(stamped.data);
     const now = Date.now();

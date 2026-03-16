@@ -1,0 +1,6 @@
+{
+  "appId": "nl.fotolerant.photovault",
+  "appName": "PhotoVault",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

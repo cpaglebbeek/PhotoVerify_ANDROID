@@ -44,9 +44,9 @@ export default function ZipVerifier({ onStart, onProgress, onEnd }: Props) {
       };
 
       const originalName = findFile("_original.png");
-      const interiorName = findFile("_protected_interior.png");
+      const interiorName = findFile("_protected_interior.png") || findFile("_cropped_interior.png");
       const borderName = findFile("_1-pixel_border_proof.png");
-      const deedName = findFile("_deed.json");
+      const deedName = findFile("_deed.json") || findFile("_metadata.json");
 
       if (!originalName || !interiorName || !borderName || !deedName) {
         throw new Error("Missing files in ZIP bundle. Ensure this is a valid PhotoVault evidence package.");
@@ -82,24 +82,33 @@ export default function ZipVerifier({ onStart, onProgress, onEnd }: Props) {
       onProgress(80);
 
       onStart("Verifying Physical Border...");
-      const fullCanvas = document.createElement('canvas');
-      fullCanvas.width = origImg.width; fullCanvas.height = origImg.height;
-      const fCtx = fullCanvas.getContext('2d', { willReadFrequently: true })!;
+      const reconCanvas = document.createElement('canvas');
+      reconCanvas.width = origImg.width;
+      reconCanvas.height = origImg.height;
+      const rCtx = reconCanvas.getContext('2d', { willReadFrequently: true })!;
       
-      // Reconstruct
-      fCtx.drawImage(intImg, 0, 0); // Note: This assumes 1-pixel shift is handled by canvas positioning if needed, 
-                                     // but our bundle logic saves them as full-size or relative.
-                                     // Based on App.tsx, they are targetWidth/Height.
-      fCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
-      fCtx.drawImage(intImg, 1, 1);
-      fCtx.drawImage(borderImg, 0, 0);
+      // Reconstruct: If interior is already full-size, draw at 0,0. 
+      // If it's the new 2-pixel-shorter version, draw at 1,1.
+      if (intImg.width === origImg.width && intImg.height === origImg.height) {
+        rCtx.drawImage(intImg, 0, 0);
+      } else {
+        rCtx.drawImage(intImg, 1, 1);
+      }
+      rCtx.drawImage(borderImg, 0, 0);
       
-      const reconData = fCtx.getImageData(0, 0, fullCanvas.width, fullCanvas.height).data;
-      fCtx.drawImage(origImg, 0, 0);
-      const origData = fCtx.getImageData(0, 0, fullCanvas.width, fullCanvas.height).data;
+      const reconData = rCtx.getImageData(0, 0, reconCanvas.width, reconCanvas.height).data;
+      
+      const origCanvas = document.createElement('canvas');
+      origCanvas.width = origImg.width;
+      origCanvas.height = origImg.height;
+      const oCtx = origCanvas.getContext('2d', { willReadFrequently: true })!;
+      oCtx.drawImage(origImg, 0, 0);
+      
+      const origData = oCtx.getImageData(0, 0, origCanvas.width, origCanvas.height).data;
       
       let physicalMatch = true;
       for (let i = 0; i < origData.length; i += 4) {
+        // Tolerant to small color shifts (threshold 10)
         if (Math.abs(origData[i] - reconData[i]) > 10 || 
             Math.abs(origData[i+1] - reconData[i+1]) > 10 || 
             Math.abs(origData[i+2] - reconData[i+2]) > 10) {
