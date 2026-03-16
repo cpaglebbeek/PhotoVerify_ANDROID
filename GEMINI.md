@@ -1,11 +1,17 @@
 # Gemini CLI Project Mandates - PhotoVerify
 
+## Chat & Sessie Historie
+- **Chatlog Mandate:** Alle chat-sessies (JSON logs) moeten vanaf nu worden bijgehouden in de map `.gemini/history/`. 
+- **Terugwerkende Kracht:** Alle beschikbare logs uit de tijdelijke mappen van dit project zijn bij de start van v1.0.5 gekopieerd naar deze locatie.
+- **Sync Protocol:** Bij elke "over en uit" actie moeten de nieuwste logs uit de systeem-temp-map (`/Users/christian/.gemini/tmp/version-1-0-5/chats/`) worden gesynchroniseerd naar `.gemini/history/` binnen het project.
+
 ## General Principles
-- **Over en uit:** When the user says "over en uit", the agent must perform a "Final Synchronization" routine:
-  1. Record all session findings, bug fixes, and significant architectural changes in `GEMINI.md`.
-  2. Update `versions.json` with a summary of the work.
-  3. Ensure all changes are committed (after reviewing with the user).
-  4. Build the latest APK if requested or relevant.
+- **Over en uit:** Wanneer de gebruiker "over en uit" zegt, voert de agent een "Finale Synchronisatie" routine uit:
+  1. Record alle bevindingen, bugfixes en architecturale wijzigingen in `GEMINI.md`.
+  2. Update `versions.json` met een samenvatting van het werk.
+  3. Synchroniseer alle chatlogs van deze sessie naar `.gemini/history/`.
+  4. Zorg dat alle wijzigingen (inclusief nieuwe logs) zijn gecommit naar Git.
+  5. Build de laatste APK indien relevant.
 
 ## Technical Findings
 - **Physical Border Mismatch (Fixed 2026-03-16):**
