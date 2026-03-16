@@ -1,0 +1,14 @@
+[
+  {
+    "version": "13.0",
+    "timestamp": "2026-03-15T05:00:00Z",
+    "commitHash": "71374de",
+    "changes": "Mobile App Prep (Phase 1): PWA integration and iOS/Android manifest setup."
+  },
+  {
+    "version": "13.1",
+    "timestamp": "2026-03-15T05:15:00Z",
+    "commitHash": "PENDING",
+    "changes": "Added interactive 'Install App' button using the beforeinstallprompt event for PWA installation."
+  }
+]

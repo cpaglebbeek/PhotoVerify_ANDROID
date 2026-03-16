@@ -1,0 +1,530 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
+import { Filesystem } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import CopyrightVerifier from './components/CopyrightVerifier';
+import TimeAnchorVerifier from './components/TimeAnchorVerifier';
+import LegacyBorderVerifier from './components/LegacyBorderVerifier';
+import ZipVerifier from './components/ZipVerifier';
+import ProcessingOverlay from './components/ProcessingOverlay';
+import { injectVirtualDataAsync } from './utils/virtualStorage';
+import { sha256, generateCombinedProof } from './utils/timeAnchor';
+import { generatePerceptualHashDetailed } from './utils/perceptualHash';
+import { bundleEvidence } from './utils/zipper';
+import { getDeviceHash, checkLicense, type LicenseStatus } from './utils/license';
+import versionData from './version.json';
+import './App.css';
+
+type Mode = 'START' | 'VERIFY' | 'SHIELD_AUTO' | 'SETTINGS' | 'LICENSE_CHECK' | 'ABOUT' | 'INFO';
+
+interface UITheme {
+  [key: string]: string;
+}
+
+interface UIConfig {
+  themes: {
+    dark: UITheme;
+    light: UITheme;
+  };
+  branding: {
+    logoUrl?: string;
+  };
+  platforms: {
+    Mobile: { Android: { borderRadius: string; buttonPadding: string; fontSizeBase: string } };
+    Desktop: { Windows: { borderRadius: string; buttonPadding: string; fontSizeBase: string } };
+  };
+}
+
+interface ContentConfig {
+  ui: {
+    title: string;
+  };
+}
+
+interface AppRestoredResult {
+  pluginId: string;
+  action: string;
+  data: {
+    url?: string;
+    uri?: string;
+  };
+}
+
+function App() {
+  const [mode, setMode] = useState<Mode>('LICENSE_CHECK');
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [sharedImage, setSharedImage] = useState<HTMLImageElement | null>(null);
+  const [sharedFilename, setSharedFilename] = useState<string>('photo.png');
+  const [sharedUid, setSharedUid] = useState<string>(localStorage.getItem('default_stamp_code') || '123456');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [processingMsg, setProcessingMsg] = useState('Processing...');
+  const [content, setContent] = useState<ContentConfig | null>(null);
+  const [uiConfig, setUiConfig] = useState<UIConfig | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const [licenseServer, setLicenseServer] = useState(localStorage.getItem('license_server_url') || 'https://fotolerant.nl');
+  const [uiUrl, setUiUrl] = useState(localStorage.getItem('ui_config_url') || 'https://fotolerant.nl/config/ui-config.json');
+  const [contentUrl, setContentUrl] = useState(localStorage.getItem('content_config_url') || 'https://fotolerant.nl/config/content-config.json');
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [safFolderUri, setSafFolderUri] = useState(localStorage.getItem('saf_folder_uri') || null);
+  const isInitialized = useRef(false);
+
+  const addLog = (msg: string) => {
+    console.log(msg);
+    setDebugLogs(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
+
+  const applyUIConfig = useCallback((config: UIConfig, activeTheme: 'dark' | 'light') => {
+    const root = document.documentElement;
+    const colors = config.themes[activeTheme];
+    Object.keys(colors).forEach(key => {
+      const cssKey = key.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
+      root.style.setProperty(`--${cssKey}`, colors[key]);
+    });
+    const isMobile = window.innerWidth <= 768;
+    const p = isMobile ? config.platforms.Mobile.Android : config.platforms.Desktop.Windows;
+    root.style.setProperty('--radius', p.borderRadius);
+    root.style.setProperty('--btn-padding', p.buttonPadding);
+    root.style.setProperty('--font-size', p.fontSizeBase);
+  }, []);
+
+  const startup = useCallback(async (forceSync = false) => {
+    addLog(`[App] Startup. forceSync=${forceSync}`);
+    setIsSyncing(true);
+    
+    // 0. Storage Access Framework (SAF) Check
+    if (Capacitor.isNativePlatform()) {
+      if (!safFolderUri) {
+        addLog(`[App] No SAF folder selected. Requesting via Native Bridge...`);
+        (CapApp as any).triggerNativeBridge('openFolderPicker');
+      } else {
+        addLog(`[App] SAF Folder active: ${safFolderUri}`);
+      }
+    }
+    
+    try {
+      const hash = await getDeviceHash();
+      addLog(`[App] ID: ${hash} | Server: ${licenseServer}`);
+      
+      const lic = await checkLicense(hash, licenseServer, forceSync);
+      addLog(`[App] Result: ${lic.active ? 'ACTIVE' : 'INACTIVE'} - ${lic.message}`);
+      setLicense(lic);
+      setIsSyncing(false);
+
+      if (lic.active) {
+        addLog(`[App] Loading remote configs...`);
+        try {
+          const [uRes, cRes] = await Promise.all([
+            fetch(uiUrl).catch(e => { addLog(`[App] UI fetch failed: ${e.message}`); throw e; }),
+            fetch(contentUrl).catch(e => { addLog(`[App] Content fetch failed: ${e.message}`); throw e; })
+          ]);
+          
+          const uData: UIConfig = await uRes.json();
+          const cData: ContentConfig = await cRes.json();
+          addLog("[App] Configs loaded.");
+          
+          setUiConfig(uData);
+          setContent(cData);
+          applyUIConfig(uData, 'dark');
+          setMode('START');
+        } catch (e) {
+          addLog(`[App] Remote config failed, using local fallback.`);
+          const [lUi, lContent] = await Promise.all([fetch('ui-config.json'), fetch('content-config.json')]);
+          const uData: UIConfig = await lUi.json();
+          setUiConfig(uData);
+          setContent(await lContent.json());
+          applyUIConfig(uData, 'dark');
+          setMode('START');
+        }
+      } else {
+        addLog(`[App] Activation required: ${lic.message}`);
+      }
+    } catch (err) {
+      const error = err as Error;
+      addLog(`[App] Fatal: ${error.message}`);
+      setIsSyncing(false);
+    }
+  }, [licenseServer, uiUrl, contentUrl, applyUIConfig]);
+
+  const manualSync = () => {
+    setDebugLogs([]);
+    startup(true);
+  };
+
+  useEffect(() => {
+    if (!isInitialized.current) {
+      setTimeout(() => startup(), 0);
+      isInitialized.current = true;
+    }
+  }, [startup]);
+
+  useEffect(() => {
+    // Listen for custom native intents (sent from MainActivity.java)
+    window.addEventListener('folderSelected', ((e: CustomEvent) => {
+      if (e.detail && e.detail.uri) {
+        addLog(`[App] SAF Folder Selected: ${e.detail.uri}`);
+        localStorage.setItem('saf_folder_uri', e.detail.uri);
+        setSafFolderUri(e.detail.uri);
+        alert("PhotoVerify Storage Folder Activated!");
+      }
+    }) as any);
+
+    window.addEventListener('safSaveSuccess', ((e: CustomEvent) => {
+      addLog(`[App] SAF Save Success: ${e.detail.name}`);
+      alert(`Successfully saved to your folder: ${e.detail.name}`);
+    }) as any);
+
+    window.addEventListener('safSaveError', ((e: CustomEvent) => {
+      addLog(`[App] SAF Save Error: ${e.detail.error}`);
+      alert(`Save error: ${e.detail.error}`);
+    }) as any);
+
+    (CapApp as any).addListener('appUrlOpen', async (data: any) => {
+      addLog(`[App] appUrlOpen: ${JSON.stringify(data)}`);
+    });
+
+    (CapApp as any).addListener('sendIntent', async (data: { uri: string }) => {
+      addLog(`[App] Custom SendIntent received: ${data.uri}`);
+      handleIncomingUri(data.uri);
+    });
+
+    // Fallback for CustomEvent from native code
+    window.addEventListener('sendIntent', ((e: CustomEvent) => {
+      if (e.detail && e.detail.uri) {
+        addLog(`[App] Window SendIntent received: ${e.detail.uri}`);
+        handleIncomingUri(e.detail.uri);
+      }
+    }) as any);
+
+    (CapApp as any).addListener('appRestoredResult', async (data: AppRestoredResult) => {
+      addLog(`[App] Restored Result: ${JSON.stringify(data)}`);
+      if (data.pluginId === 'Share' || data.action === 'send' || (data as any).pluginId === 'App') {
+        const intentData = data.data;
+        const uri = intentData?.url || intentData?.uri;
+        if (uri) handleIncomingUri(uri);
+      }
+    });
+  }, []);
+
+  const handleIncomingUri = async (uri: string) => {
+    addLog(`[App] Processing Incoming URI: ${uri}`);
+    const isZip = uri.toLowerCase().endsWith('.zip');
+    
+    try {
+      if (isZip) {
+        if (confirm("Evidence Bundle (.zip) detected. Would you like to run a full Forensic Audit on this package?")) {
+          setMode('VERIFY');
+          // Note: In a real scenario, we would pass the URI to the ZipVerifier. 
+          // For now, we guide the user to the Verify screen.
+        }
+      } else {
+        if (confirm("Photo detected. Would you like to start an Automatic Shield (Invisible Stamp + DNA) on this image?")) {
+          const file = await Filesystem.readFile({ path: uri });
+          const img = new Image();
+          img.onload = () => {
+            addLog(`[App] Shared Image loaded successfully (${img.width}x${img.height})`);
+            setSharedImage(img);
+            setSharedFilename(uri.split('/').pop() || 'shared_photo.png');
+            setMode('SHIELD_AUTO');
+          };
+          img.onerror = () => { addLog(`[App] Error loading shared image object.`); alert("Failed to process shared image data."); };
+          img.src = `data:image/png;base64,${file.data}`;
+        }
+      }
+    } catch (e) {
+      const error = e as Error;
+      addLog(`[App] File system read error: ${error.message}`);
+      alert(`Error reading shared file: ${error.message}`);
+    }
+  };
+
+  const copyHash = () => {
+    if (license?.deviceHash) {
+      navigator.clipboard.writeText(license.deviceHash);
+      alert("Device ID copied to clipboard!");
+    }
+  };
+
+  const startProc = (msg: string) => { setProcessingMsg(msg); setIsProcessing(true); setProgress(0); };
+  const endProc = () => { setProgress(100); setTimeout(() => setIsProcessing(false), 500); };
+
+  const runOneClickShield = async () => {
+    if (!sharedImage) return;
+    
+    let code = "";
+    let isValid = false;
+    let attempts = 0;
+    
+    while(!isValid && attempts < 3) {
+      const input = prompt("Confirm Stamp Code (exactly 6 characters):", sharedUid || '000001');
+      if (input === null) return; // Cancelled
+      if (input.length === 6) {
+        code = input.toUpperCase();
+        isValid = true;
+      } else {
+        alert("Error: Code must be exactly 6 characters.");
+        attempts++;
+      }
+    }
+    
+    if (!isValid) return;
+    setSharedUid(code);
+    const finalCode = code;
+    
+    // Memory Safety Check: if image is huge, we need to handle carefully or downscale
+    const MAX_DIM = 4096;
+    let targetWidth = sharedImage.width;
+    let targetHeight = sharedImage.height;
+    
+    if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
+      const ratio = Math.min(MAX_DIM / targetWidth, MAX_DIM / targetHeight);
+      targetWidth = Math.floor(targetWidth * ratio);
+      targetHeight = Math.floor(targetHeight * ratio);
+      console.warn(`[App] Image too large (${sharedImage.width}x${sharedImage.height}), downscaling to ${targetWidth}x${targetHeight} for stability.`);
+      alert("Note: Large image detected. Scaling down slightly for processing stability.");
+    }
+
+    startProc("Shielding Image...");
+    await new Promise(r => setTimeout(r, 150)); 
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth; canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' })!;
+    ctx.drawImage(sharedImage, 0, 0, targetWidth, targetHeight);
+
+    const borderCanvas = document.createElement('canvas');
+    borderCanvas.width = targetWidth; borderCanvas.height = targetHeight;
+    const bCtx = borderCanvas.getContext('2d')!;
+    // Border logic: Extract exactly the outermost 1-pixel rectangle from the original
+    bCtx.drawImage(canvas, 0, 0, targetWidth, 1, 0, 0, targetWidth, 1); // Top
+    bCtx.drawImage(canvas, 0, targetHeight - 1, targetWidth, 1, 0, targetHeight - 1, targetWidth, 1); // Bottom
+    bCtx.drawImage(canvas, 0, 1, 1, targetHeight - 2, 0, 1, 1, targetHeight - 2); // Left
+    bCtx.drawImage(canvas, targetWidth - 1, 1, 1, targetHeight - 2, targetWidth - 1, 1, 1, targetHeight - 2); // Right
+
+    const interiorCanvas = document.createElement('canvas');
+    interiorCanvas.width = targetWidth - 2; interiorCanvas.height = targetHeight - 2;
+    const iCtx = interiorCanvas.getContext('2d')!;
+    // Interior logic: Physical crop, removing the 1-pixel border
+    iCtx.drawImage(canvas, 1, 1, targetWidth - 2, targetHeight - 2, 0, 0, targetWidth - 2, targetHeight - 2);
+    
+    // 1. Calculate Perceptual Hash (Visual DNA) from the UNSTAMPED Interior
+    const dna = generatePerceptualHashDetailed(iCtx.getImageData(0, 0, interiorCanvas.width, interiorCanvas.height));
+
+    // 2. Inject Stamp Code into the Interior
+    const stamped = await injectVirtualDataAsync(iCtx.getImageData(0, 0, interiorCanvas.width, interiorCanvas.height), finalCode, (p) => setProgress(60 + p * 0.3));
+    iCtx.putImageData(stamped, 0, 0);
+
+    // Visual Stamp: Draw a visible 1-pixel rectangle around the entire image
+    ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)'; // pv-accent with transparency
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, targetWidth - 1, targetHeight - 1);
+
+    // 3. Calculate Image Hash (SHA-256) from the STAMPED Interior
+    const hash = await sha256(stamped.data);
+    
+    const now = Date.now();
+    const deed = { 
+      imageHash: hash, 
+      perceptualHash: dna.hash, 
+      anchorHash: "AUTO",
+      anchorSource: "AUTO-Generated",
+      timestamp: now, 
+      combinedProof: await generateCombinedProof(hash, "AUTO") 
+    };
+    
+    await bundleEvidence(canvas.toDataURL('image/png'), borderCanvas.toDataURL('image/png'), interiorCanvas.toDataURL('image/png'), deed, `${finalCode}_${sharedFilename}`);
+    
+    endProc();
+    alert("ZIP Bundle Saved!");
+    setMode('START');
+  };
+
+  if (mode === 'LICENSE_CHECK') {
+    return (
+      <div className="App" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', padding: '20px' }}>
+        <div className="card-glass text-center" style={{ maxWidth: '450px', width: '100%' }}>
+          <span style={{ fontSize: '4rem' }}>🛡️</span>
+          <h2>Activation Required</h2>
+          
+          <div style={{ background: '#000', padding: '15px', borderRadius: '10px', margin: '20px 0', border: '1px solid #334155' }}>
+            <small style={{ color: 'var(--text-dim)', display: 'block', marginBottom: '5px' }}>YOUR DEVICE ID</small>
+            <code style={{ fontSize: '1.2rem', color: '#60a5fa', letterSpacing: '2px' }}>{license?.deviceHash || '...'}</code>
+          </div>
+
+          <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left', border: '1px solid #1e293b' }}>
+            <small style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '5px', borderBottom: '1px solid #1e293b', paddingBottom: '3px' }}>VERBOSE NETWORK LOG</small>
+            <div style={{ maxHeight: '150px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.75rem', color: '#38bdf8' }}>
+              {debugLogs.length === 0 ? <span style={{ color: '#475569' }}>Waiting for sync...</span> : debugLogs.map((log, i) => (
+                <div key={i} style={{ marginBottom: '2px', borderLeft: '2px solid #0ea5e9', paddingLeft: '5px' }}>{log}</div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+            <button className="btn btn-primary" onClick={copyHash} style={{ width: '100%' }}>📋 Copy ID</button>
+            <button className="btn btn-nav btn-success" onClick={manualSync} disabled={isSyncing} style={{ width: '100%', padding: '12px' }}>
+              {isSyncing ? '⌛ Syncing...' : '🔄 Sync with Server'}
+            </button>
+          </div>
+          {license?.message && <p style={{ marginTop: '15px', color: license.active ? '#2ecc71' : '#ef4444', fontSize: '0.9rem' }}>{license.message}</p>}
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '20px' }}>
+            HTTPS is required. If using a local server, ensure CORS is enabled.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!content) return null;
+
+  return (
+    <div className="App" style={{ fontSize: 'var(--font-size)' }}>
+      {isProcessing && <ProcessingOverlay progress={progress} message={processingMsg} />}
+      <header className="App-header">
+        <div className="header-top">
+          <div className="app-branding" onClick={() => setMode('START')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {uiConfig?.branding?.logoUrl ? <img src={uiConfig.branding.logoUrl} alt="Logo" style={{ height: '50px' }} /> : <span style={{ fontSize: '2.5rem' }}>📸</span>}
+            <div style={{ textAlign: 'left' }}>
+              <h1 style={{ fontSize: '1.8rem', lineHeight: '1' }}>{content.ui.title}</h1>
+              <small style={{ color: 'var(--text-dim)' }}>v{versionData.current}</small>
+            </div>
+          </div>
+          <div className="nav-cluster">
+            <button className="btn btn-nav" onClick={() => setMode('INFO')} title="Help">ℹ️</button>
+            <button className="btn btn-nav" onClick={() => setMode('ABOUT')} title="About">❓</button>
+            <button className="btn btn-nav" onClick={() => setMode('SETTINGS')}>⚙️</button>
+            <button className="btn btn-nav" onClick={() => setMode('START')}>🏠 Home</button>
+            <button className="btn btn-nav btn-success" onClick={() => setMode('SHIELD_AUTO')}>🛡️ Shield</button>
+          </div>
+        </div>
+      </header>
+
+      <main className="wizard-container">
+        {mode === 'ABOUT' && (
+          <div className="card-glass text-left">
+            <h2 style={{ color: '#60a5fa' }}>❓ About PhotoVault</h2>
+            <p>PhotoVault is a "Democratic Forensic Suite" for the individual creator, providing tools that were previously only available to large corporations.</p>
+            
+            <h3 className="mt-1" style={{ fontSize: '1rem', color: '#fbbf24' }}>1. Comparative Analysis</h3>
+            <ul style={{ fontSize: '0.9rem', color: '#cbd5e1', paddingLeft: '20px' }}>
+              <li><strong>vs Adobe (CAI):</strong> Our stamp is embedded in the <em>pixels</em>, not just metadata. It survives when headers are stripped by social media.</li>
+              <li><strong>vs Microsoft (PhotoDNA):</strong> We are proactive for owners to prove origin, not just reactive for platforms to find illegal content.</li>
+              <li><strong>vs Google (Lens):</strong> We provide mathematical, court-ready proof (Hamming Distance), not just "visual similarity" matches.</li>
+            </ul>
+
+            <h3 className="mt-1" style={{ fontSize: '1rem', color: '#fbbf24' }}>2. Sovereignty First</h3>
+            <p style={{ fontSize: '0.9rem' }}>Unlike cloud-based competitors, PhotoVault runs <strong>100% locally</strong> in your browser or on your device. Your sensitive original photos never leave your machine.</p>
+            
+            <button className="btn btn-primary mt-1" onClick={() => setMode('START')}>Got it!</button>
+          </div>
+        )}
+
+        {mode === 'INFO' && (
+          <div className="card-glass text-left">
+            <h2 style={{ color: '#fbbf24' }}>ℹ️ Scientific Foundation</h2>
+            <p>PhotoVault protects your vision through three distinct cryptographic layers:</p>
+
+            <div style={{ marginTop: '15px' }}>
+              <h4 style={{ color: '#60a5fa', margin: '0' }}>🛡️ Layer 1: Invisible Stamp</h4>
+              <p style={{ fontSize: '0.85rem', marginTop: '5px' }}>A 4-bit differential encoding hides a secret 6-character code (UID) directly in the pixel luminance. Stable against most re-saves.</p>
+            </div>
+
+            <div style={{ marginTop: '15px' }}>
+              <h4 style={{ color: '#60a5fa', margin: '0' }}>🔍 Layer 2: Visual DNA (pHash)</h4>
+              <p style={{ fontSize: '0.85rem', marginTop: '5px' }}>Uses a 16x16 grid (256 bits) to identify the "concept" of the photo. This recognizes your work even if it is cropped, scaled, or filtered.</p>
+            </div>
+
+            <div style={{ marginTop: '15px' }}>
+              <h4 style={{ color: '#60a5fa', margin: '0' }}>📐 Layer 3: Physical Border</h4>
+              <p style={{ fontSize: '0.85rem', marginTop: '5px' }}>A 1-pixel frame is extracted as a unique "puzzle piece". Verification requires the owner to have the exact original dimensions.</p>
+            </div>
+
+            <div style={{ marginTop: '15px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+              <h4 style={{ color: '#10b981', margin: '0' }}>📜 Layer 4: Time-Anchor</h4>
+              <p style={{ fontSize: '0.85rem', marginTop: '5px' }}>Links your image hash to a public "Anchor" hash from today, proving the photo existed at this point in time.</p>
+            </div>
+
+            <button className="btn btn-primary mt-1" onClick={() => setMode('START')}>Close Help</button>
+          </div>
+        )}
+
+        {mode === 'SETTINGS' && (
+          <div className="card-glass">
+            <h2>⚙️ Config</h2>
+            <label>License Server:
+              <input type="text" value={licenseServer} onChange={e => setLicenseServer(e.target.value)} style={{ width: '100%', marginBottom: '10px', background: '#000' }} />
+            </label>
+            <label>UI URL:
+              <input type="text" value={uiUrl} onChange={e => setUiUrl(e.target.value)} style={{ width: '100%', marginBottom: '10px', background: '#000' }} />
+            </label>
+            <label>Content URL:
+              <input type="text" value={contentUrl} onChange={e => setContentUrl(e.target.value)} style={{ width: '100%', background: '#000', marginBottom: '10px' }} />
+            </label>
+            <label>Default Stamp Code (6 chars):
+              <input 
+                type="text" 
+                value={sharedUid} 
+                onChange={e => {
+                  const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '');
+                  if (val.length <= 6) setSharedUid(val);
+                }} 
+                maxLength={6}
+                style={{ width: '100%', background: '#000', fontFamily: 'monospace' }}
+              />
+            </label>
+            <button className="btn btn-primary mt-1" onClick={() => { 
+              localStorage.setItem('license_server_url', licenseServer); 
+              localStorage.setItem('ui_config_url', uiUrl); 
+              localStorage.setItem('content_config_url', contentUrl); 
+              localStorage.setItem('default_stamp_code', sharedUid);
+              window.location.reload(); 
+            }}>Save & Reload</button>
+          </div>
+        )}
+
+        {mode === 'SHIELD_AUTO' && (
+          <div className="card-glass text-center">
+            <h2>🛡️ One-Click Shield</h2>
+            <label className="file-dropzone mt-1">
+              <input type="file" accept="image/*" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) { setSharedFilename(file.name); const img = new Image(); img.onload = () => setSharedImage(img); img.src = URL.createObjectURL(file); }
+              }} />
+              {sharedImage ? <img src={sharedImage.src} style={{ maxWidth: '100%', maxHeight: '200px' }} /> : <span>Click to load photo</span>}
+            </label>
+            {sharedImage && <button className="btn btn-primary mt-1" onClick={runOneClickShield}>⚡ ACTIVATE SHIELD (ZIP)</button>}
+          </div>
+        )}
+
+        {mode === 'START' && (
+          <div className="action-cards">
+            <button className="card-action protect" onClick={() => setMode('SHIELD_AUTO')}>
+              <span className="icon">🛡️</span>
+              <h2>Auto-Shield</h2>
+              <p>ZIP Evidence Bundle</p>
+            </button>
+            <button className="card-action verify" onClick={() => setMode('VERIFY')}>
+              <span className="icon">🔍</span>
+              <h2>Manual Audit</h2>
+              <p>Step-by-step verification</p>
+            </button>
+          </div>
+        )}
+
+        {mode === 'VERIFY' && (
+          <div className="wizard-flow">
+            <button className="btn btn-secondary mb-1" onClick={() => setMode('START')}>← Back</button>
+            <div className="card-glass" style={{ border: '2px solid #60a5fa' }}><ZipVerifier onStart={startProc} onProgress={setProgress} onEnd={endProc} /></div>
+            <div className="card-glass"><CopyrightVerifier onStart={() => startProc('Scanning...')} onProgress={setProgress} onEnd={endProc} /></div>
+            <div className="card-glass"><TimeAnchorVerifier onStart={() => startProc('Auditing...')} onProgress={setProgress} onEnd={endProc} /></div>
+            <div className="card-glass"><LegacyBorderVerifier onStart={() => startProc('Verifying...')} onProgress={setProgress} onEnd={endProc} /></div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
