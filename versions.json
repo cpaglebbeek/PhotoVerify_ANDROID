@@ -1,62 +1,38 @@
 [
   {
+    "version": "1.2.6",
+    "timestamp": "2026-03-17T17:35:00Z",
+    "codename": "Joe_Sync",
+    "changes": "Resolved persistent cache issues with deep purge and UUID identity. Full license passport in About."
+  },
+  {
+    "version": "1.2.5",
+    "timestamp": "2026-03-17T17:10:00Z",
+    "codename": "Peter_Final",
+    "changes": "Enhanced Licensing: Customer fields, Grace period, and Device Owner. Default Documents storage."
+  },
+  {
+    "version": "1.2.4",
+    "timestamp": "2026-03-17T16:45:00Z",
+    "codename": "Quagmire_Final",
+    "changes": "UUID Forced Release to bypass installation conflicts."
+  },
+  {
+    "version": "1.2.3",
+    "timestamp": "2026-03-17T16:30:00Z",
+    "codename": "Sync_Test",
+    "changes": "Visual sync validation via forced header tag."
+  },
+  {
+    "version": "1.2.0",
+    "timestamp": "2026-03-17T16:00:00Z",
+    "codename": "Peter_Griffin",
+    "changes": "Consolidated Milestone: Fixed share intents, SAF saving, and final UI fixes."
+  },
+  {
     "version": "1.1.0",
-    "timestamp": "2026-03-17T15:30:00Z",
+    "timestamp": "2026-03-17T15:10:00Z",
     "codename": "Glenn_Quagmire",
-    "changes": "Optional forensic layers, refactored shielding sequence, improved UI visibility, and validated in-page UID input."
-  },
-  {
-    "version": "1.0.9",
-    "timestamp": "2026-03-17T14:45:00Z",
-    "codename": "Bonnie_Swanson",
-    "changes": "Smart Share Intent detection for ZIP vs Image files."
-  },
-  {
-    "version": "1.0.8",
-    "timestamp": "2026-03-17T14:15:00Z",
-    "codename": "Joe_Swanson",
-    "changes": "Implemented Native SAF Bridge to fix EACCESS errors on modern Android versions."
-  },
-  {
-    "version": "1.0.7",
-    "timestamp": "2026-03-17T13:45:00Z",
-    "codename": "Cleveland_Brown",
-    "changes": "Fixed Visual Stamp order consistency and added 2% noise tolerance to Forensic Audit."
-  },
-  {
-    "version": "1.0.5",
-    "timestamp": "2026-03-16T20:30:00Z",
-    "codename": "Sovereign_Input",
-    "changes": "Strict 6-char stamp code enforcement in UI and Settings. Persistent storage for default stamp code."
-  },
-  {
-    "version": "1.0.4",
-    "timestamp": "2026-03-16T20:15:00Z",
-    "codename": "Sovereign_Quota",
-    "changes": "Fixed localStorage QuotaExceededError by removing large Base64 blobs from history."
-  },
-  {
-    "version": "1.0.3",
-    "timestamp": "2026-03-16T19:45:00Z",
-    "codename": "Sovereign_Correction",
-    "changes": "Fixed 1-pixel alignment bug in border verification. Upgraded ZipVerifier with smart file discovery."
-  },
-  {
-    "version": "1.0.2",
-    "timestamp": "2026-03-16T19:15:00Z",
-    "codename": "Sovereign_Link",
-    "changes": "Added ZipVerifier component, About/Help sections, and improved Intent handling for ZIP files."
-  },
-  {
-    "version": "1.0.1",
-    "timestamp": "2026-03-16T18:45:00Z",
-    "codename": "Sovereign_Shield",
-    "changes": "Added visual 1-pixel rectangle stamp to all protected images."
-  },
-  {
-    "version": "1.0.0",
-    "timestamp": "2026-03-16T18:00:00Z",
-    "codename": "Genesis_Rebirth",
-    "changes": "Initial production build with full ZIP bundling and Deed integrity fixes."
+    "changes": "Optional forensic layers (checkboxes) and refactored shielding sequence."
   }
 ]

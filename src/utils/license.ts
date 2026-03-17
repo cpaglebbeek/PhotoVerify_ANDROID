@@ -8,6 +8,10 @@ export interface LicenseStatus {
   deviceHash: string;
   lastCheck: number;
   message?: string;
+  name?: string;
+  company?: string;
+  customerId?: string;
+  isGracePeriod?: boolean;
 }
 
 const STORAGE_KEY = 'photovault_license_state';
@@ -44,8 +48,9 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
   const now = Date.now();
   const GRACE_PERIOD = 24 * 60 * 60 * 1000; // 1 Day
 
-  // 1. Fast Path: Use local if active, not expired, and not forcing a sync
-  if (!forceSync && localState && localState.deviceHash === hash && localState.active && localState.expiry > now) {
+  // 1. Fast Path: Use local if active, not expired (or infinite), and not forcing a sync
+  const isExpired = localState && localState.expiry <= now && localState.expiry < 4000000000000;
+  if (!forceSync && localState && localState.deviceHash === hash && localState.active && !isExpired) {
     const timeSinceLastCheck = now - localState.lastCheck;
     if (timeSinceLastCheck < GRACE_PERIOD) {
       return { ...localState, message: localState.message || "License Active (Offline)" };
@@ -72,11 +77,15 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
     console.log(`[License] Success:`, serverData);
     
     const newState: LicenseStatus = {
-      active: serverData.active && serverData.expiry > now,
+      active: serverData.active && (serverData.expiry > now || serverData.expiry > 4000000000000),
       expiry: serverData.expiry,
       deviceHash: hash,
       lastCheck: now,
-      message: serverData.message || "License Verified"
+      message: serverData.message || "License Verified",
+      name: serverData.name,
+      company: serverData.company,
+      customerId: serverData.customerId,
+      isGracePeriod: false
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
@@ -89,9 +98,9 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
     if (localState && localState.deviceHash === hash) {
       const timeSinceLastCheck = now - localState.lastCheck;
       if (timeSinceLastCheck < GRACE_PERIOD) {
-        return { ...localState, message: "Offline Mode (Grace Period Active)" };
+        return { ...localState, isGracePeriod: true, message: "Offline Mode (Grace Period Active)" };
       }
-      return { ...localState, active: false, message: `Sync failed: ${error.message}` };
+      return { ...localState, active: false, isGracePeriod: false, message: `Sync failed: ${error.message}` };
     }
     
     return { 
@@ -99,6 +108,7 @@ export const checkLicense = async (hash: string, serverUrl: string, forceSync = 
       expiry: 0, 
       deviceHash: hash, 
       lastCheck: 0, 
+      isGracePeriod: false,
       message: error.message.toLowerCase().includes('failed') 
         ? "Network error: Server unreachable or SSL error." 
         : `Activation error: ${error.message}` 

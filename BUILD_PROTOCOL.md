@@ -18,5 +18,11 @@ The validation script (`scripts/validate_repo.py`) monitors:
 - **System Bridges:** MainActivity.java, NativeBridgePlugin.java (SAF Integration).
 - **Security:** license.ts.
 
-## 4. Maintenance
-Whenever a new functional feature is added or a technical module is refactored, the `PHOTOVERIFY_REPO.json` **MUST** be updated first. The build will fail until the technical mapping reflects the actual codebase structure.
+## 8. Anti-Caching & UUID Enforcement
+To ensure the user always sees the latest code and to prevent Android installation conflicts:
+
+- **UUID Requirement:** Every debug build MUST use a unique `applicationIdSuffix` based on the current timestamp (`.dHHmm`). This forces a fresh installation.
+- **Deep Clean:** Before every build, the following folders MUST be purged: `dist/`, `android/app/build/`, and all `.vite` caches.
+- **Gradle Clean:** Every Android build must be preceded by a `./gradlew clean` command.
+- **Visual Validation:** Every build must include a unique version tag in the header (e.g., `[V1.2.4_FORCED]`) to allow the user to verify the sync state visually.
+

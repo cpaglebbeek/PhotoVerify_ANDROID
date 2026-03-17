@@ -17,13 +17,26 @@ public class NativeBridgePlugin extends Plugin {
     }
 
     @PluginMethod
-    public void saveToSelectedFolder(PluginCall call) {
+    public void openFilePicker(PluginCall call) {
+        String mimeType = call.getString("mimeType", "*/*");
+        MainActivity activity = (MainActivity) getActivity();
+        activity.openFilePicker(mimeType);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void saveFileFromPath(PluginCall call) {
         String filename = call.getString("filename");
-        String base64Data = call.getString("base64Data");
+        String tempPath = call.getString("tempPath");
         String mimeType = call.getString("mimeType");
 
         MainActivity activity = (MainActivity) getActivity();
-        activity.saveToSelectedFolder(filename, base64Data, mimeType);
-        call.resolve();
+        try {
+            String cleanPath = tempPath.replace("file://", "");
+            activity.saveFromTempFile(cleanPath, filename, mimeType);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
     }
 }

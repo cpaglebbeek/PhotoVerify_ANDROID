@@ -207,16 +207,28 @@ input[type="file"] { display: none; }
   background: var(--card-bg);
   cursor: pointer;
   transition: all 0.3s;
+  color: #ffffff !important; /* Force white text */
+}
+
+.card-action h2, .card-action p {
+  color: #ffffff !important;
 }
 
 .card-action:hover {
-  border-color: var(--accent);
   transform: translateY(-4px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  filter: brightness(1.1);
 }
 
-.card-action.protect { border-left: 6px solid var(--success); }
-.card-action.verify { border-left: 6px solid var(--accent); }
+.card-action.protect { 
+  background: var(--success); 
+  border: none;
+}
+
+.card-action.verify { 
+  background: var(--accent); 
+  border: none;
+}
 
 /* Utility Classes */
 .mt-1 { margin-top: 1rem; }

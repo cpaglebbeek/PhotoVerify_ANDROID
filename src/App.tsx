@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Device } from '@capacitor/device';
 import CopyrightVerifier from './components/CopyrightVerifier';
 import TimeAnchorVerifier from './components/TimeAnchorVerifier';
 import LegacyBorderVerifier from './components/LegacyBorderVerifier';
@@ -17,6 +18,8 @@ import './App.css';
 
 interface NativeBridgePlugin {
   openFolderPicker(): Promise<void>;
+  openFilePicker(options: { mimeType: string }): Promise<void>;
+  saveFileFromPath(options: { filename: string; tempPath: string; mimeType: string }): Promise<void>;
   saveToSelectedFolder(options: { filename: string; base64Data: string; mimeType: string }): Promise<void>;
 }
 
@@ -60,6 +63,7 @@ interface AppRestoredResult {
 function App() {
   const [mode, setMode] = useState<Mode>('LICENSE_CHECK');
   const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<{ name?: string; model?: string }>({});
   const [sharedImage, setSharedImage] = useState<HTMLImageElement | null>(null);
   const [sharedFilename, setSharedFilename] = useState<string>('photo.png');
   const [sharedUid, setSharedUid] = useState<string>(localStorage.getItem('default_stamp_code') || '123654');
@@ -79,6 +83,8 @@ function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [safFolderUri, setSafFolderUri] = useState(localStorage.getItem('saf_folder_uri') || null);
   const isInitialized = useRef(false);
+
+  const [lastHandledUri, setLastHandledUri] = useState<string | null>(null);
 
   const addLog = (msg: string) => {
     console.log(msg);
@@ -103,17 +109,10 @@ function App() {
     addLog(`[App] Startup. forceSync=${forceSync}`);
     setIsSyncing(true);
     
-    // 0. Storage Access Framework (SAF) Check
-    if (Capacitor.isNativePlatform()) {
-      if (!safFolderUri) {
-        addLog(`[App] No SAF folder selected. Requesting via Native Bridge...`);
-        NativeBridge.openFolderPicker().catch(e => addLog(`[App] Plugin openFolderPicker failed: ${e.message}`));
-      } else {
-        addLog(`[App] SAF Folder active: ${safFolderUri}`);
-      }
-    }
-    
     try {
+      const info = await Device.getInfo();
+      setDeviceInfo({ name: info.name, model: info.model });
+      
       const hash = await getDeviceHash();
       addLog(`[App] ID: ${hash} | Server: ${licenseServer}`);
       
@@ -125,26 +124,32 @@ function App() {
       if (lic.active) {
         addLog(`[App] Loading remote configs...`);
         try {
-          const [uRes, cRes] = await Promise.all([
-            fetch(uiUrl).catch(e => { addLog(`[App] UI fetch failed: ${e.message}`); throw e; }),
-            fetch(contentUrl).catch(e => { addLog(`[App] Content fetch failed: ${e.message}`); throw e; })
-          ]);
+          const uRes = await fetch(uiUrl).catch(e => { addLog(`[App] UI fetch failed: ${e.message}`); throw e; });
+          const cRes = await fetch(contentUrl).catch(e => { addLog(`[App] Content fetch failed: ${e.message}`); throw e; });
           
           const uData: UIConfig = await uRes.json();
           const cData: ContentConfig = await cRes.json();
-          addLog("[App] Configs loaded.");
+          addLog(`[App] Configs loaded. Version validated as: ${versionData.current}`);
           
           setUiConfig(uData);
           setContent(cData);
           applyUIConfig(uData, 'dark');
           setMode('START');
         } catch (e) {
-          addLog(`[App] Remote config failed, using local fallback.`);
-          const [lUi, lContent] = await Promise.all([fetch('ui-config.json'), fetch('content-config.json')]);
-          const uData: UIConfig = await lUi.json();
-          setUiConfig(uData);
-          setContent(await lContent.json());
-          applyUIConfig(uData, 'dark');
+          addLog(`[App] Remote config failed, using local fallback assets.`);
+          const [lUi, lContent] = await Promise.all([
+            fetch('ui-config.json').catch(() => null), 
+            fetch('content-config.json').catch(() => null)
+          ]);
+          
+          if (lUi && lContent) {
+            const uData: UIConfig = await lUi.json();
+            setUiConfig(uData);
+            setContent(await lContent.json());
+            applyUIConfig(uData, 'dark');
+          } else {
+            addLog("[App] CRITICAL: Local fallbacks missing or failed.");
+          }
           setMode('START');
         }
       } else {
@@ -163,6 +168,9 @@ function App() {
   };
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      addLog("[App] Native platform detected.");
+    }
     if (!isInitialized.current) {
       setTimeout(() => startup(), 0);
       isInitialized.current = true;
@@ -219,6 +227,24 @@ function App() {
 
   const [sharedZipBlob, setSharedZipBlob] = useState<Blob | undefined>(undefined);
 
+  const [nativeFileCallback, setNativeFileCallback] = useState<((uri: string) => void) | null>(null);
+
+  const openNativeFilePicker = (mimeType: string, callback: (uri: string) => void) => {
+    setNativeFileCallback(() => callback);
+    NativeBridge.openFilePicker({ mimeType }).catch(e => addLog(`[App] Native picker failed: ${e.message}`));
+  };
+
+  useEffect(() => {
+    const handleNativeFile = (e: any) => {
+      if (e.detail?.uri && nativeFileCallback) {
+        nativeFileCallback(e.detail.uri);
+        setNativeFileCallback(null);
+      }
+    };
+    window.addEventListener('nativeFileSelected', handleNativeFile);
+    return () => window.removeEventListener('nativeFileSelected', handleNativeFile);
+  }, [nativeFileCallback]);
+
   const base64ToBlob = (base64: string, mime: string) => {
     const byteCharacters = atob(base64);
     const byteNumbers = new Array(byteCharacters.length);
@@ -230,6 +256,8 @@ function App() {
   };
 
   const handleIncomingUri = async (uri: string) => {
+    if (uri === lastHandledUri) return;
+    setLastHandledUri(uri);
     addLog(`[App] Processing Incoming URI: ${uri}`);
     const isZip = uri.toLowerCase().endsWith('.zip');
     
@@ -262,14 +290,7 @@ function App() {
     }
   };
 
-  const copyHash = () => {
-    if (license?.deviceHash) {
-      navigator.clipboard.writeText(license.deviceHash);
-      alert("Device ID copied to clipboard!");
-    }
-  };
-
-  const startProc = (msg: string) => { setProcessingMsg(msg); setIsProcessing(true); setProgress(0); };
+  const startProc = (msg: string) => { setProcessingMsg(msg); setProgress(0); setIsProcessing(true); };
   const endProc = () => { setProgress(100); setTimeout(() => setIsProcessing(false), 500); };
 
   const runOneClickShield = async () => {
@@ -400,15 +421,14 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-            <button className="btn btn-primary" onClick={copyHash} style={{ width: '100%' }}>📋 Copy ID</button>
+            <button className="btn btn-primary" onClick={() => { license?.deviceHash && navigator.clipboard.writeText(license.deviceHash); alert("Device ID copied to clipboard!"); }} style={{ width: '100%' }}>📋 Copy ID</button>
             <button className="btn btn-nav btn-success" onClick={manualSync} disabled={isSyncing} style={{ width: '100%', padding: '12px' }}>
               {isSyncing ? '⌛ Syncing...' : '🔄 Sync with Server'}
             </button>
           </div>
+
           {license?.message && <p style={{ marginTop: '15px', color: license.active ? '#2ecc71' : '#ef4444', fontSize: '0.9rem' }}>{license.message}</p>}
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '20px' }}>
-            HTTPS is required. If using a local server, ensure CORS is enabled.
-          </p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '20px' }}>HTTPS is required. If using a local server, ensure CORS is enabled.</p>
         </div>
       </div>
     );
@@ -424,7 +444,7 @@ function App() {
           <div className="app-branding" onClick={() => setMode('START')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px' }}>
             {uiConfig?.branding?.logoUrl ? <img src={uiConfig.branding.logoUrl} alt="Logo" style={{ height: '50px' }} /> : <span style={{ fontSize: '2.5rem' }}>📸</span>}
             <div style={{ textAlign: 'left' }}>
-              <h1 style={{ fontSize: '1.8rem', lineHeight: '1' }}>{content.ui.title}</h1>
+              <h1 style={{ fontSize: '1.8rem', lineHeight: '1' }}>{content.ui.title} <span style={{ color: '#10b981', fontSize: '0.8rem' }}>[V1.2.6_SYNC_OK]</span></h1>
               <small style={{ color: '#10b981', fontWeight: 'bold' }}>v{versionData.current}</small>
             </div>
           </div>
@@ -443,13 +463,58 @@ function App() {
           <div className="card-glass text-left">
             <h2 style={{ color: '#60a5fa' }}>❓ About PhotoVault</h2>
             
-            <div style={{ background: 'rgba(0,0,0,0.4)', padding: '10px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #334155' }}>
-              <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
-                Version: <span style={{ color: '#10b981' }}>v{versionData.current}</span>
-              </p>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
-                Build Codename: <span style={{ color: '#fbbf24' }}>Glenn Quagmire</span>
-              </p>
+            <div style={{ background: 'rgba(0,0,0,0.4)', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #334155' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem' }}>
+                <div>
+                  <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>VERSION</label>
+                  <strong style={{ color: '#10b981' }}>v{versionData.current}</strong>
+                </div>
+                <div>
+                  <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>CODENAME</label>
+                  <strong style={{ color: '#fbbf24' }}>Joe_Sync</strong>
+                </div>
+              </div>
+
+              <hr style={{ border: '0', borderTop: '1px solid #1e293b', margin: '10px 0' }} />
+
+              <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>DEVICE OWNER / NAME</label>
+              <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{deviceInfo.name || 'Unknown Device'}</strong>
+              <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.7rem' }}>Model: {deviceInfo.model}</small>
+
+              <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem', marginTop: '10px' }}>FORENSIC DEVICE ID</label>
+              <code style={{ fontSize: '0.85rem', color: '#60a5fa' }}>{license?.deviceHash || 'Detecting...'}</code>
+
+              <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem' }}>
+                <div>
+                  <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>STATUS</label>
+                  <strong style={{ color: license?.active ? '#10b981' : '#ef4444' }}>
+                    {license?.active ? 'ACTIVATED' : 'EXPIRED / INACTIVE'}
+                  </strong>
+                </div>
+                <div>
+                  <label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>EXPIRATION</label>
+                  <strong style={{ color: '#fff' }}>
+                    {license?.expiry && license.expiry > 4000000000000 ? 'NONE (INFINITE)' : 
+                     license?.expiry ? new Date(license.expiry).toLocaleDateString() : 'N/A'}
+                  </strong>
+                </div>
+              </div>
+
+              {(license?.name || license?.company || license?.customerId) && (
+                <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(96, 165, 250, 0.1)', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <label style={{ color: '#60a5fa', display: 'block', fontSize: '0.65rem', fontWeight: 'bold', marginBottom: '5px' }}>REGISTRATION DETAILS</label>
+                  {license.name && <p style={{ margin: '0 0 4px 0', fontSize: '0.85rem' }}><strong>User:</strong> {license.name}</p>}
+                  {license.company && <p style={{ margin: '0 0 4px 0', fontSize: '0.85rem' }}><strong>Org:</strong> {license.company}</p>}
+                  {license.customerId && <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}><strong>ID:</strong> {license.customerId}</p>}
+                </div>
+              )}
+
+              <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>GRACE PERIOD:</span>
+                <strong style={{ fontSize: '0.75rem', color: license?.isGracePeriod ? '#fbbf24' : '#10b981' }}>
+                  {license?.isGracePeriod ? '⚠️ ACTIVE (OFFLINE)' : '✅ INACTIVE (SYNCED)'}
+                </strong>
+              </div>
             </div>
 
             <p>PhotoVault is a "Democratic Forensic Suite" for the individual creator, providing tools that were previously only available to large corporations.</p>
@@ -499,35 +564,61 @@ function App() {
 
         {mode === 'SETTINGS' && (
           <div className="card-glass">
-            <h2>⚙️ Config</h2>
-            <label>License Server:
-              <input type="text" value={licenseServer} onChange={e => setLicenseServer(e.target.value)} style={{ width: '100%', marginBottom: '10px', background: '#000' }} />
-            </label>
-            <label>UI URL:
-              <input type="text" value={uiUrl} onChange={e => setUiUrl(e.target.value)} style={{ width: '100%', marginBottom: '10px', background: '#000' }} />
-            </label>
-            <label>Content URL:
-              <input type="text" value={contentUrl} onChange={e => setContentUrl(e.target.value)} style={{ width: '100%', background: '#000', marginBottom: '10px' }} />
-            </label>
-            <label>Default Stamp Code (6 chars):
-              <input 
-                type="text" 
-                value={sharedUid} 
-                onChange={e => {
-                  const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '');
-                  if (val.length <= 6) setSharedUid(val);
-                }} 
-                maxLength={6}
-                style={{ width: '100%', background: '#000', fontFamily: 'monospace' }}
-              />
-            </label>
-            <button className="btn btn-primary mt-1" onClick={() => { 
-              localStorage.setItem('license_server_url', licenseServer); 
-              localStorage.setItem('ui_config_url', uiUrl); 
-              localStorage.setItem('content_config_url', contentUrl); 
-              localStorage.setItem('default_stamp_code', sharedUid);
-              window.location.reload(); 
-            }}>Save & Reload</button>
+            <h2>⚙️ Configuration & Sync</h2>
+            <div className="info-box mb-1" style={{ fontSize: '0.8rem', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px' }}>
+              <p style={{ margin: 0 }}>Current Active Folder: <code style={{ color: '#60a5fa' }}>{safFolderUri || 'Internal Documents (Default)'}</code></p>
+            </div>
+
+            <div style={{ display: 'grid', gap: '15px' }}>
+              <label>License Server:
+                <input type="text" value={licenseServer} onChange={e => setLicenseServer(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} />
+              </label>
+              <label>UI Config URL:
+                <input type="text" value={uiUrl} onChange={e => setUiUrl(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} />
+              </label>
+              <label>Content Config URL:
+                <input type="text" value={contentUrl} onChange={e => setContentUrl(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} />
+              </label>
+              <label>Default Stamp Code:
+                <input 
+                  type="text" 
+                  value={sharedUid} 
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '');
+                    if (val.length <= 6) setSharedUid(val);
+                  }} 
+                  maxLength={6}
+                  style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px', fontFamily: 'monospace' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => startup(true)} style={{ border: '1px solid #60a5fa', color: '#60a5fa' }}>
+                🔄 FETCH / UPDATE
+              </button>
+              <button className="btn btn-primary" onClick={() => {
+                localStorage.setItem('license_server_url', licenseServer); 
+                localStorage.setItem('ui_config_url', uiUrl); 
+                localStorage.setItem('content_config_url', contentUrl); 
+                localStorage.setItem('default_stamp_code', sharedUid);
+                alert("Settings Committed. App will reload.");
+                window.location.reload();
+              }}>
+                💾 SAVE / COMMIT
+              </button>
+            </div>
+            
+            <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
+              <button className="btn btn-primary" onClick={() => NativeBridge.openFolderPicker()} style={{ width: '100%', marginBottom: '10px', background: '#2563eb' }}>
+                📁 CHANGE STORAGE FOLDER
+              </button>
+              <button className="btn btn-secondary" onClick={() => {
+                localStorage.removeItem('saf_folder_uri');
+                alert("Storage folder reset to Internal Documents.");
+                window.location.reload();
+              }} style={{ width: '100%', fontSize: '0.8rem' }}>Reset to Default</button>
+            </div>
           </div>
         )}
 
@@ -591,7 +682,15 @@ function App() {
         {mode === 'VERIFY' && (
           <div className="wizard-flow">
             <button className="btn btn-secondary mb-1" onClick={() => { setMode('START'); setSharedZipBlob(undefined); }}>← Back</button>
-            <div className="card-glass" style={{ border: '2px solid #60a5fa' }}><ZipVerifier initialFile={sharedZipBlob} onStart={startProc} onProgress={setProgress} onEnd={endProc} /></div>
+            <div className="card-glass" style={{ border: '2px solid #60a5fa' }}>
+              <ZipVerifier 
+                initialFile={sharedZipBlob} 
+                onNativePick={openNativeFilePicker}
+                onStart={startProc} 
+                onProgress={setProgress} 
+                onEnd={endProc} 
+              />
+            </div>
             <div className="card-glass"><CopyrightVerifier onStart={() => startProc('Scanning...')} onProgress={setProgress} onEnd={endProc} /></div>
             <div className="card-glass"><TimeAnchorVerifier onStart={() => startProc('Auditing...')} onProgress={setProgress} onEnd={endProc} /></div>
             <div className="card-glass"><LegacyBorderVerifier onStart={() => startProc('Verifying...')} onProgress={setProgress} onEnd={endProc} /></div>

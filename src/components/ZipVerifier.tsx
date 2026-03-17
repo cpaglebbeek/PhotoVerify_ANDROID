@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
+import { Filesystem } from '@capacitor/filesystem';
 import { extractVirtualDataAsync } from '../utils/virtualStorage';
 import { generatePerceptualHashDetailed, hashToBits, compareHashesElastic } from '../utils/perceptualHash';
 import { type AnchorDeed } from '../utils/timeAnchor';
 
 interface Props {
   initialFile?: File | Blob;
+  onNativePick?: (mime: string, cb: (uri: string) => void) => void;
   onStart: (msg: string) => void;
   onProgress: (p: number) => void;
   onEnd: () => void;
@@ -19,7 +21,7 @@ interface ZipAuditResult {
   error?: string;
 }
 
-export default function ZipVerifier({ initialFile, onStart, onProgress, onEnd }: Props) {
+export default function ZipVerifier({ initialFile, onNativePick, onStart, onProgress, onEnd }: Props) {
   const [result, setResult] = useState<ZipAuditResult | null>(null);
   const [isAuditRunning, setIsAuditRunning] = useState(false);
 
@@ -77,18 +79,23 @@ export default function ZipVerifier({ initialFile, onStart, onProgress, onEnd }:
         deed: deed ? { status: 'SUCCESS', data: deed } : { status: 'NOT_PRESENT' }
       };
 
-      onStart("Scanning Invisible Stamp...");
+      // Prepare interior data for both Stamp and DNA
       const canvas = document.createElement('canvas');
       canvas.width = intImg.width; canvas.height = intImg.height;
       const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(intImg, 0, 0);
       const intData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const stampRes = await extractVirtualDataAsync(intData, p => onProgress(40 + p * 0.2));
-      
-      if (stampRes) {
-        auditRes.stamp = { status: 'SUCCESS', value: stampRes.uid };
-      } else if (deed?.features?.stamp !== false) {
-        auditRes.stamp = { status: 'ERROR' };
+
+      onStart("Scanning Invisible Stamp...");
+      if (deed?.features?.stamp !== false) {
+        const stampRes = await extractVirtualDataAsync(intData, p => onProgress(40 + p * 0.2));
+        if (stampRes) {
+          auditRes.stamp = { status: 'SUCCESS', value: stampRes.uid };
+        } else {
+          auditRes.stamp = { status: 'ERROR' };
+        }
+      } else {
+        auditRes.stamp = { status: 'NOT_PRESENT' };
       }
 
       onStart("Auditing Visual DNA...");
@@ -155,6 +162,23 @@ export default function ZipVerifier({ initialFile, onStart, onProgress, onEnd }:
     if (file) runAudit(file);
   };
 
+  const handleNativeTrigger = () => {
+    if (onNativePick) {
+      onNativePick('application/zip', async (uri) => {
+        try {
+          const file = await Filesystem.readFile({ path: uri });
+          const byteCharacters = atob(file.data as string);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) { byteNumbers[i] = byteCharacters.charCodeAt(i); }
+          const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/zip' });
+          runAudit(blob);
+        } catch (e) {
+          alert("Failed to read file: " + (e as Error).message);
+        }
+      });
+    }
+  };
+
   return (
     <div className="component-container">
       <h2 style={{ color: '#60a5fa' }}>⚡ One-Click Bundle Audit</h2>
@@ -162,10 +186,16 @@ export default function ZipVerifier({ initialFile, onStart, onProgress, onEnd }:
         Select a PhotoVault evidence package (.zip) to verify all security layers.
       </p>
       
-      <div className="input-group" style={{ marginTop: '15px', textAlign: 'center' }}>
-        <label htmlFor="zip-upload" className="btn btn-primary" style={{ display: 'block', cursor: 'pointer', padding: '15px', border: '2px dashed #60a5fa', background: 'rgba(96, 165, 250, 0.1)' }}>
-          📂 BROWSE EVIDENCE ZIP
-        </label>
+      <div className="input-group" style={{ marginTop: '15px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {onNativePick ? (
+          <button className="btn btn-primary" onClick={handleNativeTrigger} style={{ padding: '15px', border: '2px dashed #60a5fa', background: 'rgba(96, 165, 250, 0.1)', color: '#60a5fa', display: 'block', width: '100%', cursor: 'pointer' }}>
+            📂 BROWSE PHOTOVERIFY FOLDER
+          </button>
+        ) : (
+          <label htmlFor="zip-upload" className="btn btn-primary" style={{ display: 'block', cursor: 'pointer', padding: '15px', border: '2px dashed #60a5fa', background: 'rgba(96, 165, 250, 0.1)' }}>
+            📂 BROWSE EVIDENCE ZIP
+          </label>
+        )}
         <input 
           id="zip-upload"
           type="file" 
@@ -200,7 +230,7 @@ export default function ZipVerifier({ initialFile, onStart, onProgress, onEnd }:
 
             <div className={`status-item ${result.deed.status.toLowerCase()}`}>
               <strong>Cryptographic Deed:</strong><br/>
-              {result.deed.status === 'SUCCESS' ? '✅ VERIFIED' : '⚪ NOT PRESENT'}
+              {result.deed.status === 'SUCCESS' ? `✅ VERIFIED` : '⚪ NOT PRESENT'}
             </div>
           </div>
 

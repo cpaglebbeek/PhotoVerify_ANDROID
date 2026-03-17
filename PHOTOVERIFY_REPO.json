@@ -1,93 +1,115 @@
 {
   "project": {
     "name": "PhotoVerify",
-    "codename": "Glenn Quagmire",
-    "version": "1.1.0",
-    "status": "Production Stable (v1.1.0)",
+    "codename": "Joe_Sync",
+    "version": "1.2.6",
+    "status": "Final Sync Milestone (v1.2.6)",
     "philosophy": "Democratic Forensic Suite for individual creators. Sovereignty first: 100% local processing, no cloud dependency.",
-    "architecture": "Capacitor 8 (React 19 + TypeScript 5) with Custom Java Native Bridge for SAF (Storage Access Framework)."
+    "architecture": "Capacitor 8 (React 19 + TypeScript 5) with Robust Java Native Bridge for SAF (Storage Access Framework)."
   },
   "scientific_layers": [
     {
       "layer": 1,
       "name": "Invisible Stamp (LSB+)",
       "functional": "Verbergt een unieke 6-cijferige code direct in de pixel-luminantie.",
-      "technical": "4-bit differential encoding in de blauwe kanalen van de interior pixels. Stable against re-saves."
+      "technical": "4-bit differential encoding in de blauwe kanalen van de interior pixels. Stable against re-saves.",
+      "logic": "Enforced 6-character hex/numeric input; padded with zeros if necessary."
     },
     {
       "layer": 2,
       "name": "Visual DNA (pHash)",
       "functional": "Identificeert het 'concept' van de foto, ongeacht kleine wijzigingen.",
-      "technical": "DCT-based Perceptual Hashing (16x16 grid). Vergelijking via Hamming Distance."
+      "technical": "DCT-based Perceptual Hashing (16x16 grid). Vergelijking via Hamming Distance.",
+      "logic": "Calculated on the cropped interior to ensure consistency with the stamped data."
     },
     {
       "layer": 3,
       "name": "Physical Border (Geometric)",
       "functional": "Gebruikt de exacte buitenste pixel-rand als fysieke puzzel-sleutel.",
-      "technical": "1-pixel rand-extractie. Verificatie vereist pixel-perfecte match met 2% tolerantie voor compressie/visual stamp."
+      "technical": "1-pixel rand-extractie. Verificatie vereist pixel-perfecte match met 2% tolerantie for compressie/visual stamp.",
+      "logic": "Visual blue border drawn BEFORE extraction to ensure consistency between proof and certified image."
     },
     {
       "layer": 4,
       "name": "Time-Anchor (Crypto)",
       "functional": "Bewijst dat de foto op een specifiek moment bestond.",
-      "technical": "SHA-256 hash van de gestempelde foto gekoppeld aan een dagelijks publiek anker (Deed JSON)."
+      "technical": "SHA-256 hash van de gestempelde foto gekoppeld aan een dagelijks publiek anker (Deed JSON).",
+      "logic": "Stored in deed.json; used to verify image integrity via SHA-256 comparison."
     }
   ],
   "components": [
     {
       "id": "UI_DASHBOARD",
       "functional": "Dashboard & Navigatie",
-      "design": "Action Cards UI met glass-morphism effecten.",
-      "technical": "App.tsx (Mode: START). Gebruikt CSS Grid en custom properties for branding."
+      "design": "Solid background action cards (Green/Blue) met witte tekst (!important).",
+      "technical": "App.tsx (Mode: START) + App.css (.card-action). Clear visual separation of Shield and Audit."
     },
     {
       "id": "UI_ABOUT_INFO",
       "functional": "Over & Help Informatie",
-      "design": "Toont missie, versie (v1.1.0) en build-codenaam (Glenn Quagmire).",
-      "technical": "App.tsx (Mode: ABOUT/INFO). Dynamische data vanuit version.json."
+      "design": "Toont missie, versie (v1.2.6) en build-codenaam (Joe_Sync). Nu inclusief gedetailleerde licentie-data.",
+      "technical": "App.tsx (Mode: ABOUT/INFO). Geeft Device Owner (Native), Status, Expiratie, Klantgegevens en Grace Period weer."
+    },
+    {
+      "id": "UI_SETTINGS",
+      "functional": "Configuratie & Sync",
+      "design": "Editbare URLs voor remote configs; Fetch/Update en Save/Commit knoppen.",
+      "technical": "App.tsx (Mode: SETTINGS). Gebruikt Web Storage en startup(true) for sync. Supports manual Storage Folder change."
     },
     {
       "id": "FEAT_AUTO_SHIELD",
       "functional": "One-Click Auto Shield",
       "design": "Automatisch proces: optionele Border -> optionele Stamp -> DNA -> Anchor -> Zip.",
-      "technical": "App.tsx (runOneClickShield). Verwerkt canvas data; ondersteunt selectieve features via UI checkboxes."
+      "technical": "App.tsx (runOneClickShield). In-page UID input; sequential processing ensuring border-stamp consistency."
     },
     {
       "id": "FEAT_BUNDLE_AUDIT",
       "functional": "One-Click Bundle Audit",
-      "design": "Verifieert alle forensische lagen van een ZIP-bundel; herkent ontbrekende componenten.",
-      "technical": "ZipVerifier.tsx. Toont status: SUCCESS, ERROR of NOT_PRESENT."
+      "design": "Verifieert alle forensische lagen; intelligente herkenning van ontbrekende lagen.",
+      "technical": "ZipVerifier.tsx. Uses 2% noise tolerance; reads deed.json 'features' to determine which scans are mandatory."
     },
     {
       "id": "SYS_SAF_BRIDGE",
       "functional": "Native Storage Bridge (SAF)",
-      "design": "Veilige bestandstoegang op Android via map-selectie.",
-      "technical": "NativeBridgePlugin.java + MainActivity.java. Implementeert ACTION_OPEN_DOCUMENT_TREE."
+      "design": "Veilige bestandstoegang op Android; standaard Documents/_PhotoVerify locatie.",
+      "technical": "NativeBridgePlugin.java + MainActivity.java. Re-activated UUID Forced identity to bypass caching."
     },
     {
       "id": "SYS_SHARE_RECEIVER",
       "functional": "Android Intent Receiver",
-      "design": "Ontvangt foto's en ZIP's direct vanuit andere apps; automatische wizard selectie.",
-      "technical": "MainActivity.java + App.tsx (handleIncomingUri). Smart detectie van bestandstype."
+      "design": "Ontvangt foto's en ZIP's; automatische wizard selectie met cold-start retry logica.",
+      "technical": "MainActivity.java (postDelayed 1s/2.5s retry) + App.tsx (handleIncomingUri)."
     },
     {
-      "id": "UTIL_ZIPPER",
-      "functional": "Evidence Bundling",
-      "design": "Creëert een gestandaardiseerd forensisch pakket (.zip).",
-      "technical": "zipper.ts. Ondersteunt optionele border bestanden."
+      "id": "UTIL_VALIDATION",
+      "functional": "Build Validation Protocol",
+      "design": "Technisch toezicht op build integriteit en efficiëntie.",
+      "technical": "scripts/validate_repo.py + incremental check logic. Aborts if no changes are detected since last build."
     },
     {
-      "id": "UTIL_LICENSE",
-      "functional": "Licentie Activatie & Security",
-      "design": "Apparaat-gebonden activatie en debug-logging.",
-      "technical": "license.ts + App.tsx (LICENSE_CHECK). HTTPS validatie via fotolerant.nl."
+      "id": "UTIL_ANTI_CACHING",
+      "functional": "Forced Asset Refresh",
+      "design": "Gegarandeerde synchronisatie tussen broncode en APK.",
+      "technical": "Deep purge van dist/ en build/ mappen + UUID identity per build."
+    }
+  ],
+  "config_files": [
+    {
+      "file": "public/ui-config.json",
+      "purpose": "Theming, platform-specific UI constants, and branding URLs."
+    },
+    {
+      "file": "public/content-config.json",
+      "purpose": "All UI text, titles, descriptions, and feature naming."
+    },
+    {
+      "file": "src/version.json",
+      "purpose": "Single source for the current version number (1.2.6)."
     }
   ],
   "version_history": [
-    { "version": "1.1.0", "codename": "Glenn Quagmire", "feature": "Optional Border/Stamp, Refactored Shield Logic, Enhanced UI Visibility" },
-    { "version": "1.0.9", "codename": "Bonnie Swanson", "feature": "Smart Share Intent Detection" },
-    { "version": "1.0.8", "codename": "Joe Swanson", "feature": "SAF Native Bridge & Syntax Fixes" },
-    { "version": "1.0.7", "codename": "Cleveland Brown", "feature": "Visual Stamp Order Fix & 2% Tolerance Audit" },
-    { "version": "1.0.5", "codename": "Sovereign Input", "feature": "Visual Stamp Implementation" }
+    { "version": "1.2.6", "codename": "Joe_Sync", "feature": "Final Sync Milestone: Solved persistent v1.0.5 cache issue via deep purge and UUID forced identity." },
+    { "version": "1.2.5", "codename": "Peter_Final", "feature": "Enhanced Licensing: Added Device Owner, User/Org details, and Grace Period to About screen. Default Documents storage." },
+    { "version": "1.2.4", "codename": "Quagmire_Final", "feature": "Consolidated Release with UUID-Forced ID to ensure clean install." }
   ]
 }

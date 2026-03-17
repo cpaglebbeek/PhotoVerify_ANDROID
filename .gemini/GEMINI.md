@@ -2,7 +2,11 @@
 
 ## Foundational Mandates
 - **Build Definition:** A "build" request ALWAYS means generating a final APK file in the `android` directory.
-- **APK Naming:** Follow the pattern `PhotoVerify-v[Version]-[Codename]-[BuildType].apk`.
+- **APK Naming:** Follow the pattern `PhotoVerify-v[Version]-[Codename]-[Timestamp]-[BuildType].apk`.
+- **Uniqueness:** NEVER perform a build with the exact same filename. Use a timestamp (HHmm).
+- **Anti-Caching:** EVERY build must be a "Clean Build" (purge dist and gradle build folders).
+- **UUID Forced:** EVERY debug build must use a unique Application ID (suffix) to ensure Android performs a fresh installation instead of a cached update.
+- **Incremental:** ONLY perform a build if changes exist, unless a "force build" is requested.
 - **Versioning:** Always increment `versionName` in `android/app/build.gradle` and `src/version.json` before a build.
 - **Over en uit:** Commando voor Finale Synchronisatie (Logs, Versions, Git, Build).
 
