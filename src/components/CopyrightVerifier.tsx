@@ -57,24 +57,25 @@ export default function CopyrightVerifier({ onStart, onProgress, onEnd }: Props)
 
   return (
     <div className="component-container">
+      <h2 style={{ color: '#fbbf24', marginBottom: '15px' }}>🔍 Scan Invisible Stamp</h2>
       <div className="upload-section">
         <div style={{ display: 'flex', gap: '10px' }}>
-          <label className="file-dropzone" style={{ flex: 1, padding: '1rem' }}>
+          <label className="file-dropzone" style={{ flex: 1, padding: '1.5rem', border: '2px dashed #fbbf24', background: 'rgba(251, 191, 36, 0.05)', cursor: 'pointer' }}>
             <input type="file" accept="image/*" onChange={handleFileUpload} />
-            <span>📁 Browse Folders</span>
+            <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>📁 BROWSE FOLDERS</span>
           </label>
-          <button className="btn btn-secondary" onClick={() => setShowRecent(!showRecent)} title="Recent Files">
-            🕒 Recent
+          <button className="btn btn-secondary" style={{ padding: '0 20px', border: '1px solid #475569' }} onClick={() => setShowRecent(!showRecent)} title="Recent Files">
+            🕒 RECENT
           </button>
         </div>
       </div>
 
       {showRecent && (
-        <div className="card-glass mt-1" style={{ maxHeight: '200px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)' }}>
-          <h4 style={{ fontSize: '0.8rem', margin: '0 0 10px 0' }}>RECENTLY PROTECTED</h4>
+        <div className="card-glass mt-1" style={{ maxHeight: '200px', overflowY: 'auto', background: 'rgba(0,0,0,0.5)', border: '1px solid #334155' }}>
+          <h4 style={{ fontSize: '0.8rem', margin: '0 0 10px 0', color: '#94a3b8' }}>RECENTLY PROTECTED</h4>
           {getHistory('image').length === 0 && <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>No recent files found.</p>}
           {getHistory('image').map((entry: HistoryEntry) => (
-            <div key={entry.id} className="info-sub" style={{ padding: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }} onClick={() => { setShowRecent(false); /* In a real app we'd load the blob here */ }}>
+            <div key={entry.id} className="info-sub" style={{ padding: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1e293b' }} onClick={() => { setShowRecent(false); }}>
               <span style={{ fontSize: '0.8rem' }}>🖼️ {entry.filename}</span>
               <small style={{ color: 'var(--text-dim)' }}>{new Date(entry.timestamp).toLocaleDateString()}</small>
             </div>
@@ -83,9 +84,11 @@ export default function CopyrightVerifier({ onStart, onProgress, onEnd }: Props)
       )}
       
       {image && (
-        <div className="mt-1 text-center">
-          <p style={{ color: 'var(--success)', fontSize: '0.8rem' }}>✅ Loaded: {filename}</p>
-          <button onClick={scan} className="btn btn-primary mt-1">Scan for Invisible Stamp</button>
+        <div className="mt-1 text-center" style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px' }}>
+          <p style={{ color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '10px' }}>✅ LOADED: {filename}</p>
+          <button onClick={scan} className="btn btn-primary" style={{ width: '100%', padding: '15px', fontSize: '1.1rem', boxShadow: '0 0 15px rgba(96, 165, 250, 0.3)' }}>
+            SCAN FOR INVISIBLE STAMP
+          </button>
         </div>
       )}
 

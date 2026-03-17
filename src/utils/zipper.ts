@@ -3,7 +3,7 @@ import { saveFile } from './fileSaver';
 
 export const bundleEvidence = async (
   originalUrl: string,
-  borderUrl: string,
+  borderUrl: string | null,
   protectedUrl: string,
   deed: object,
   baseName: string
@@ -14,9 +14,11 @@ export const bundleEvidence = async (
   const originalData = originalUrl.split(',')[1];
   zip.file(`${baseName}_original.png`, originalData, { base64: true });
 
-  // 2. Border Proof
-  const borderData = borderUrl.split(',')[1];
-  zip.file(`${baseName}_1-pixel_border_proof.png`, borderData, { base64: true });
+  // 2. Border Proof (Optional)
+  if (borderUrl) {
+    const borderData = borderUrl.split(',')[1];
+    zip.file(`${baseName}_1-pixel_border_proof.png`, borderData, { base64: true });
+  }
 
   // 3. Protected Interior
   const protectedData = protectedUrl.split(',')[1];

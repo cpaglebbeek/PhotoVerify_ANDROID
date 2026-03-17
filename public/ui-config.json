@@ -15,11 +15,10 @@
       "text": "#f8fafc",
       "textDim": "#94a3b8",
       "border": "#334155",
-      "accent": "#60a5fa",
-      "success": "#10b981",
-      "warning": "#fbbf24"
-    },
-    "light": {
+      "accent": "#2563eb",
+      "success": "#16a34a",
+      "warning": "#ca8a04"
+    },    "light": {
       "bg": "#f8fafc",
       "cardBg": "#ffffff",
       "text": "#0f172a",

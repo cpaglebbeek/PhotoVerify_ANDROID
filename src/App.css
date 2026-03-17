@@ -4,11 +4,11 @@
   --text: #f8fafc;
   --text-dim: #94a3b8;
   --border: #334155;
-  --accent: #60a5fa;
-  --accent-glow: rgba(96, 165, 250, 0.2);
-  --success: #10b981;
-  --warning: #fbbf24;
-  --error: #ef4444;
+  --accent: #2563eb; /* Solide Blauw */
+  --accent-glow: rgba(37, 99, 235, 0.2);
+  --success: #16a34a; /* Solide Groen */
+  --warning: #ca8a04;
+  --error: #dc2626;
   --nav-bg: rgba(30, 41, 59, 0.8);
 }
 
@@ -65,27 +65,28 @@ h1, h2, h3, h4 { margin-top: 0; font-weight: 700; letter-spacing: -0.025em; }
 
 .btn-primary {
   background: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 6px -1px var(--accent-glow);
+  color: #ffffff !important;
+  box-shadow: none;
 }
 .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 .btn-secondary {
   background: var(--card-bg);
   border-color: var(--border);
-  color: var(--text);
+  color: #ffffff !important;
 }
 .btn-secondary:hover { border-color: var(--accent); background: var(--accent-glow); }
 
 .btn-success {
   background: var(--success);
-  color: #fff;
+  color: #ffffff !important;
+  box-shadow: none;
 }
 .btn-success:hover { filter: brightness(1.1); }
 
 .btn-warning {
   background: var(--warning);
-  color: #000;
+  color: #ffffff !important;
 }
 
 .btn-nav {
@@ -93,7 +94,7 @@ h1, h2, h3, h4 { margin-top: 0; font-weight: 700; letter-spacing: -0.025em; }
   font-size: 0.85rem;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: #ffffff !important;
 }
 
 /* Layout Containers */

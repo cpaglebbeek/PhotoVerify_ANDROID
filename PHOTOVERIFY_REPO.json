@@ -1,0 +1,93 @@
+{
+  "project": {
+    "name": "PhotoVerify",
+    "codename": "Glenn Quagmire",
+    "version": "1.1.0",
+    "status": "Production Stable (v1.1.0)",
+    "philosophy": "Democratic Forensic Suite for individual creators. Sovereignty first: 100% local processing, no cloud dependency.",
+    "architecture": "Capacitor 8 (React 19 + TypeScript 5) with Custom Java Native Bridge for SAF (Storage Access Framework)."
+  },
+  "scientific_layers": [
+    {
+      "layer": 1,
+      "name": "Invisible Stamp (LSB+)",
+      "functional": "Verbergt een unieke 6-cijferige code direct in de pixel-luminantie.",
+      "technical": "4-bit differential encoding in de blauwe kanalen van de interior pixels. Stable against re-saves."
+    },
+    {
+      "layer": 2,
+      "name": "Visual DNA (pHash)",
+      "functional": "Identificeert het 'concept' van de foto, ongeacht kleine wijzigingen.",
+      "technical": "DCT-based Perceptual Hashing (16x16 grid). Vergelijking via Hamming Distance."
+    },
+    {
+      "layer": 3,
+      "name": "Physical Border (Geometric)",
+      "functional": "Gebruikt de exacte buitenste pixel-rand als fysieke puzzel-sleutel.",
+      "technical": "1-pixel rand-extractie. Verificatie vereist pixel-perfecte match met 2% tolerantie voor compressie/visual stamp."
+    },
+    {
+      "layer": 4,
+      "name": "Time-Anchor (Crypto)",
+      "functional": "Bewijst dat de foto op een specifiek moment bestond.",
+      "technical": "SHA-256 hash van de gestempelde foto gekoppeld aan een dagelijks publiek anker (Deed JSON)."
+    }
+  ],
+  "components": [
+    {
+      "id": "UI_DASHBOARD",
+      "functional": "Dashboard & Navigatie",
+      "design": "Action Cards UI met glass-morphism effecten.",
+      "technical": "App.tsx (Mode: START). Gebruikt CSS Grid en custom properties for branding."
+    },
+    {
+      "id": "UI_ABOUT_INFO",
+      "functional": "Over & Help Informatie",
+      "design": "Toont missie, versie (v1.1.0) en build-codenaam (Glenn Quagmire).",
+      "technical": "App.tsx (Mode: ABOUT/INFO). Dynamische data vanuit version.json."
+    },
+    {
+      "id": "FEAT_AUTO_SHIELD",
+      "functional": "One-Click Auto Shield",
+      "design": "Automatisch proces: optionele Border -> optionele Stamp -> DNA -> Anchor -> Zip.",
+      "technical": "App.tsx (runOneClickShield). Verwerkt canvas data; ondersteunt selectieve features via UI checkboxes."
+    },
+    {
+      "id": "FEAT_BUNDLE_AUDIT",
+      "functional": "One-Click Bundle Audit",
+      "design": "Verifieert alle forensische lagen van een ZIP-bundel; herkent ontbrekende componenten.",
+      "technical": "ZipVerifier.tsx. Toont status: SUCCESS, ERROR of NOT_PRESENT."
+    },
+    {
+      "id": "SYS_SAF_BRIDGE",
+      "functional": "Native Storage Bridge (SAF)",
+      "design": "Veilige bestandstoegang op Android via map-selectie.",
+      "technical": "NativeBridgePlugin.java + MainActivity.java. Implementeert ACTION_OPEN_DOCUMENT_TREE."
+    },
+    {
+      "id": "SYS_SHARE_RECEIVER",
+      "functional": "Android Intent Receiver",
+      "design": "Ontvangt foto's en ZIP's direct vanuit andere apps; automatische wizard selectie.",
+      "technical": "MainActivity.java + App.tsx (handleIncomingUri). Smart detectie van bestandstype."
+    },
+    {
+      "id": "UTIL_ZIPPER",
+      "functional": "Evidence Bundling",
+      "design": "Creëert een gestandaardiseerd forensisch pakket (.zip).",
+      "technical": "zipper.ts. Ondersteunt optionele border bestanden."
+    },
+    {
+      "id": "UTIL_LICENSE",
+      "functional": "Licentie Activatie & Security",
+      "design": "Apparaat-gebonden activatie en debug-logging.",
+      "technical": "license.ts + App.tsx (LICENSE_CHECK). HTTPS validatie via fotolerant.nl."
+    }
+  ],
+  "version_history": [
+    { "version": "1.1.0", "codename": "Glenn Quagmire", "feature": "Optional Border/Stamp, Refactored Shield Logic, Enhanced UI Visibility" },
+    { "version": "1.0.9", "codename": "Bonnie Swanson", "feature": "Smart Share Intent Detection" },
+    { "version": "1.0.8", "codename": "Joe Swanson", "feature": "SAF Native Bridge & Syntax Fixes" },
+    { "version": "1.0.7", "codename": "Cleveland Brown", "feature": "Visual Stamp Order Fix & 2% Tolerance Audit" },
+    { "version": "1.0.5", "codename": "Sovereign Input", "feature": "Visual Stamp Implementation" }
+  ]
+}

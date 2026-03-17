@@ -1,14 +1,38 @@
 [
   {
-    "version": "13.0",
-    "timestamp": "2026-03-15T05:00:00Z",
-    "commitHash": "71374de",
-    "changes": "Mobile App Prep (Phase 1): PWA integration and iOS/Android manifest setup."
+    "version": "1.0.5",
+    "timestamp": "2026-03-16T20:30:00Z",
+    "codename": "Sovereign_Input",
+    "changes": "Strict 6-char stamp code enforcement in UI and Settings. Persistent storage for default stamp code."
   },
   {
-    "version": "13.1",
-    "timestamp": "2026-03-15T05:15:00Z",
-    "commitHash": "PENDING",
-    "changes": "Added interactive 'Install App' button using the beforeinstallprompt event for PWA installation."
+    "version": "1.0.4",
+    "timestamp": "2026-03-16T20:15:00Z",
+    "codename": "Sovereign_Quota",
+    "changes": "Fixed localStorage QuotaExceededError by removing large Base64 blobs from history."
+  },
+  {
+    "version": "1.0.3",
+    "timestamp": "2026-03-16T19:45:00Z",
+    "codename": "Sovereign_Correction",
+    "changes": "Fixed 1-pixel alignment bug in border verification. Upgraded ZipVerifier with smart file discovery."
+  },
+  {
+    "version": "1.0.2",
+    "timestamp": "2026-03-16T19:15:00Z",
+    "codename": "Sovereign_Link",
+    "changes": "Added ZipVerifier component, About/Help sections, and improved Intent handling for ZIP files."
+  },
+  {
+    "version": "1.0.1",
+    "timestamp": "2026-03-16T18:45:00Z",
+    "codename": "Sovereign_Shield",
+    "changes": "Added visual 1-pixel rectangle stamp to all protected images."
+  },
+  {
+    "version": "1.0.0",
+    "timestamp": "2026-03-16T18:00:00Z",
+    "codename": "Genesis_Rebirth",
+    "changes": "Initial production build with full ZIP bundling and Deed integrity fixes."
   }
 ]

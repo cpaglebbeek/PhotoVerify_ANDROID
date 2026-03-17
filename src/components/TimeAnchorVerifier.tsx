@@ -181,17 +181,33 @@ export default function TimeAnchorVerifier({ onStart, onProgress, onEnd }: Props
   };
 
   return (
-    <div className="dashboard-section" style={{ borderTop: '4px solid #3498db' }}>
-      <div className="input-group">
-        <label>1. Photo: <input type="file" accept="image/*" onChange={handleImageUpload} /></label>
-        <label>2. Deed: <input type="file" accept=".json" onChange={handleDeedUpload} /></label>
-        <div style={{ background: '#111', padding: '15px', borderRadius: '8px' }}>
-          <span>Threshold: <strong>{(threshold * 100).toFixed(0)}%</strong></span>
-          <input type="range" min="0.5" max="1.0" step="0.01" value={threshold} onChange={e => setThreshold(parseFloat(e.target.value))} style={{ width: '100%' }} />
-          <ClassificationTable currentVal={threshold} />
-        </div>
-        {image && deed && <button onClick={auditOwnership} className="primary-button">Start Forensic Audit</button>}
+    <div className="component-container" style={{ borderTop: '4px solid #3498db', paddingTop: '20px' }}>
+      <h2 style={{ color: '#3498db', marginBottom: '15px' }}>📜 Time-Anchor Audit</h2>
+      <div className="input-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+        <label className="file-dropzone" style={{ padding: '1rem', border: '2px dashed #3498db', background: 'rgba(52, 152, 219, 0.05)', cursor: 'pointer', textAlign: 'center' }}>
+          <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#3498db' }}>🖼️ PHOTO</span>
+        </label>
+        <label className="file-dropzone" style={{ padding: '1rem', border: '2px dashed #3498db', background: 'rgba(52, 152, 219, 0.05)', cursor: 'pointer', textAlign: 'center' }}>
+          <input type="file" accept=".json" onChange={handleDeedUpload} style={{ display: 'none' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#3498db' }}>📄 DEED</span>
+        </label>
       </div>
+
+      <div style={{ background: '#111', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #334155' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span>Threshold:</span>
+          <strong style={{ color: '#3498db' }}>{(threshold * 100).toFixed(0)}%</strong>
+        </div>
+        <input type="range" min="0.5" max="1.0" step="0.01" value={threshold} onChange={e => setThreshold(parseFloat(e.target.value))} style={{ width: '100%' }} />
+        <ClassificationTable currentVal={threshold} />
+      </div>
+
+      {image && deed && (
+        <button onClick={auditOwnership} className="btn btn-primary" style={{ width: '100%', padding: '15px', fontSize: '1.1rem', background: '#3498db', borderColor: '#3498db' }}>
+          START FORENSIC AUDIT
+        </button>
+      )}
 
       {auditResult && (
         <div className="audit-visualization" style={{ marginTop: '20px', background: '#000', padding: '20px', borderRadius: '12px' }}>

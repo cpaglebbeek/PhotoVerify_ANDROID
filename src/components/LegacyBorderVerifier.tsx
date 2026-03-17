@@ -53,7 +53,7 @@ export default function LegacyBorderVerifier({ onStart, onProgress, onEnd }: Pro
 
     // 2. Reconstruct from parts
     ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(cropped, 0, 0);
+    ctx.drawImage(cropped, 1, 1);
     ctx.drawImage(proof, 0, 0);
     const reconstructedData = ctx.getImageData(0, 0, width, height).data;
     onProgress(60);
@@ -110,12 +110,25 @@ export default function LegacyBorderVerifier({ onStart, onProgress, onEnd }: Pro
 
   return (
     <div className="component-container">
-      <div className="upload-section">
-        <label>1. Original File to verify: <input type="file" accept="image/*" onChange={handleFileUpload(setOriginal)} /></label>
-        <label>2. Cropped Interior part: <input type="file" accept="image/*" onChange={handleFileUpload(setCropped)} /></label>
-        <label>3. 1-Pixel Border part: <input type="file" accept="image/*" onChange={handleFileUpload(setProof)} /></label>
+      <h2 style={{ color: '#10b981', marginBottom: '15px' }}>📐 Physical Border Audit</h2>
+      <div className="upload-section" style={{ display: 'grid', gap: '10px', marginBottom: '15px' }}>
+        <label className="file-dropzone" style={{ padding: '0.8rem', border: '2px dashed #10b981', background: 'rgba(16, 185, 129, 0.05)', cursor: 'pointer', textAlign: 'center' }}>
+          <input type="file" accept="image/*" onChange={handleFileUpload(setOriginal)} style={{ display: 'none' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#10b981' }}>{original ? '✅ ORIGINAL LOADED' : '1. ORIGINAL FILE'}</span>
+        </label>
+        <label className="file-dropzone" style={{ padding: '0.8rem', border: '2px dashed #10b981', background: 'rgba(16, 185, 129, 0.05)', cursor: 'pointer', textAlign: 'center' }}>
+          <input type="file" accept="image/*" onChange={handleFileUpload(setCropped)} style={{ display: 'none' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#10b981' }}>{cropped ? '✅ INTERIOR LOADED' : '2. CROPPED INTERIOR'}</span>
+        </label>
+        <label className="file-dropzone" style={{ padding: '0.8rem', border: '2px dashed #10b981', background: 'rgba(16, 185, 129, 0.05)', cursor: 'pointer', textAlign: 'center' }}>
+          <input type="file" accept="image/*" onChange={handleFileUpload(setProof)} style={{ display: 'none' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#10b981' }}>{proof ? '✅ BORDER LOADED' : '3. 1-PIXEL BORDER'}</span>
+        </label>
       </div>
-      <button onClick={verify} className="primary-button" style={{ marginTop: '10px' }}>Verify Physical Combination</button>
+      
+      <button onClick={verify} className="btn btn-primary" style={{ width: '100%', padding: '15px', fontSize: '1.1rem', background: '#10b981', borderColor: '#10b981' }}>
+        VERIFY PHYSICAL COMBINATION
+      </button>
       
       {verificationResult && (
         <div className={`results ${verificationResult.success ? 'success' : 'error'}`}>

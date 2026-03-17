@@ -128,8 +128,24 @@ export default function ImageLab({ onStart, onProgress, onEnd }: Props) {
                 {labMode === 'STAMP' && (
                   <div>
                     <label style={{fontSize: '0.8em'}}>Test Code:</label>
-                    <input type="text" value={stampCode} onChange={e=>setStampCode(e.target.value)} maxLength={6} style={{marginBottom: '10px', width:'100%'}} />
-                    <button className="lang-btn" onClick={applyDigitalStamp} style={{width:'100%', background: '#059669'}}>Inject Stamp</button>
+                    <input 
+                      type="text" 
+                      value={stampCode} 
+                      onChange={e => {
+                        const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '');
+                        if (val.length <= 6) setStampCode(val);
+                      }} 
+                      maxLength={6} 
+                      style={{marginBottom: '10px', width:'100%', background: '#333', color: 'white', fontFamily: 'monospace'}} 
+                    />
+                    <button 
+                      className="lang-btn" 
+                      onClick={applyDigitalStamp} 
+                      style={{width:'100%', background: stampCode.length === 6 ? '#059669' : '#333', opacity: stampCode.length === 6 ? 1 : 0.5}}
+                      disabled={stampCode.length !== 6}
+                    >
+                      Inject Stamp
+                    </button>
                     <button className="lang-btn" onClick={() => saveFile(workbenchRef.current!.toDataURL(), 'stamped_test.png')} style={{width:'100%', marginTop:'5px'}}>Download Result</button>
                   </div>
                 )}

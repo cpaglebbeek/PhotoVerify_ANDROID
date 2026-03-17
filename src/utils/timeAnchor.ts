@@ -45,4 +45,8 @@ export interface AnchorDeed {
   anchorSource: string;
   combinedProof: string;
   timestamp: number;
+  features?: {
+    border?: boolean;
+    stamp?: boolean;
+  };
 }
