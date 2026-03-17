@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "validate": "python3 scripts/validate_repo.py",
-    "build": "bash scripts/sync_meta.sh && npm run validate && tsc -b && vite build",
+    "build": "bash scripts/sync_meta.sh && npm run validate && npx tsc -b && npx vite build",
     "mobile:sync": "npm run build && npx cap sync android",
+    "mobile:build": "npm run mobile:sync && cd android && export JAVA_HOME=/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home && export PATH=$JAVA_HOME/bin:$PATH && ./gradlew clean assembleDebug && cp app/build/outputs/apk/debug/*.apk /Users/christian/Downloads/",
     "mobile:run": "npm run mobile:sync && npx cap run android",
     "mobile:assets": "capacitor-assets generate --android",
     "lint": "eslint .",

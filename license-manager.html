@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoVerify License Manager v1.1</title>
+    <title>PhotoVerify License Manager v1.2</title>
     <style>
         body { font-family: system-ui; background: #0f172a; color: white; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: #1e293b; padding: 30px; border-radius: 20px; border: 1px solid #334155; width: 100%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .card { background: #1e293b; padding: 30px; border-radius: 20px; border: 1px solid #334155; width: 100%; max-width: 700px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         label { display: block; font-size: 0.8rem; color: #94a3b8; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
-        input, select { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; margin: 5px 0 15px; box-sizing: border-box; font-size: 1rem; }
-        input:focus { border-color: #60a5fa; outline: none; }
+        input, select, textarea { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; margin: 5px 0 15px; box-sizing: border-box; font-size: 1rem; }
+        textarea { font-family: monospace; font-size: 0.8rem; resize: vertical; }
+        input:focus, textarea:focus { border-color: #60a5fa; outline: none; }
         .btn-group { display: flex; gap: 10px; margin-top: 10px; }
         button { background: #60a5fa; color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
         button:hover { opacity: 0.9; }
         .btn-load { background: #475569; }
         .btn-download { background: #10b981; }
+        .btn-parse { background: #8b5cf6; margin-bottom: 20px; }
         .result { margin-top: 20px; background: #000; padding: 15px; border-radius: 10px; font-family: monospace; display: none; word-break: break-all; border: 1px solid #10b981; }
         .header { text-align: center; margin-bottom: 20px; }
         .header h2 { margin: 0; color: #60a5fa; }
         .file-input { display: none; }
+        .section-title { color: #60a5fa; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-top: 20px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="header">
-            <h2>🎟️ License Manager v1.1</h2>
-            <p style="color: #94a3b8; font-size: 0.9rem;">Manage PhotoVerify Device Licenses</p>
+            <h2>🎟️ License Manager v1.2</h2>
+            <p style="color: #94a3b8; font-size: 0.9rem;">Advanced Metadata & Platform Management</p>
         </div>
 
         <div class="btn-group" style="margin-bottom: 20px;">
@@ -34,9 +37,30 @@
             <input type="file" id="load-input" class="file-input" accept=".json" onchange="loadLicense(event)">
         </div>
 
-        <label>Device ID (from App):</label>
+        <div class="section-title">Step 1: Identity & Platform (Extended ID)</div>
+        <label>Paste Extended Device Info from App:</label>
+        <textarea id="extended-info" placeholder="ID: A1B2...\nOS: macOS...\nBrowser: Chrome...\n..." rows="4"></textarea>
+        <button class="btn-parse" onclick="parseExtendedInfo()">⚡ Parse Info & Identity</button>
+
+        <label>Device Hash (Machine ID):</label>
         <input type="text" id="dev-id" placeholder="E.g. A1B2C3D4E5F6G7H8">
 
+        <div class="row">
+            <div>
+                <label>OS / Platform:</label>
+                <input type="text" id="os-info" placeholder="e.g. macOS">
+            </div>
+            <div>
+                <label>Browser / Engine:</label>
+                <input type="text" id="browser-info" placeholder="e.g. Chrome">
+            </div>
+        </div>
+        <label>Runtime Mode:</label>
+        <input type="text" id="runtime-info" placeholder="e.g. STANDALONE_PWA">
+        <label>Full User Agent:</label>
+        <input type="text" id="agent-info" placeholder="UserAgent string...">
+
+        <div class="section-title">Step 2: License Status & Expiry</div>
         <div class="row">
             <div>
                 <label>Status:</label>
@@ -56,11 +80,10 @@
 
         <div id="days-container">
             <label>Days until expiration:</label>
-            <input type="number" id="expiry-days" value="30">
+            <input type="number" id="expiry-days" value="365">
         </div>
 
-        <hr style="border: 0; border-top: 1px solid #334155; margin: 10px 0;">
-
+        <div class="section-title">Step 3: Customer Details</div>
         <label>Customer Name:</label>
         <input type="text" id="cust-name" placeholder="John Doe">
 
@@ -75,12 +98,12 @@
             </div>
         </div>
 
-        <button onclick="generateLicense()">Save / Generate License</button>
+        <button onclick="generateLicense()">Generate & Finalize License JSON</button>
 
         <div id="result-box" class="result">
-            <p style="color: #94a3b8; margin-top: 0;">Upload this to: <span id="path-hint" style="color: #60a5fa;">/licenses/[ID].json</span></p>
-            <textarea id="json-out" readonly style="width: 100%; height: 180px; background: #111; color: #10b981; border: 1px solid #222; padding: 10px; box-sizing: border-box; font-size: 0.8rem;"></textarea>
-            <button onclick="downloadLicense()" class="btn-download" style="margin-top: 15px;">Download [ID].json</button>
+            <p style="color: #94a3b8; margin-top: 0;">Upload to Server: <span id="path-hint" style="color: #60a5fa;">/licenses/[ID].json</span></p>
+            <textarea id="json-out" readonly style="height: 250px; background: #111; color: #10b981; border: 1px solid #222; padding: 10px; box-sizing: border-box; font-size: 0.8rem;"></textarea>
+            <button onclick="downloadLicense()" class="btn-download" style="margin-top: 15px;">💾 Download [ID].json</button>
         </div>
     </div>
 
@@ -93,6 +116,21 @@
             document.getElementById('days-container').style.display = type === 'days' ? 'block' : 'none';
         }
 
+        function parseExtendedInfo() {
+            const text = document.getElementById('extended-info').value;
+            if (!text) return alert("Please paste information first.");
+
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                if (line.startsWith('ID:')) document.getElementById('dev-id').value = line.replace('ID:', '').trim();
+                if (line.startsWith('OS:')) document.getElementById('os-info').value = line.replace('OS:', '').trim();
+                if (line.startsWith('Browser:')) document.getElementById('browser-info').value = line.replace('Browser:', '').trim();
+                if (line.startsWith('Runtime:')) document.getElementById('runtime-info').value = line.replace('Runtime:', '').trim();
+                if (line.startsWith('Agent:')) document.getElementById('agent-info').value = line.replace('Agent:', '').trim();
+            });
+            alert("Platform info parsed successfully!");
+        }
+
         function loadLicense(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -100,7 +138,6 @@
             reader.onload = function(e) {
                 try {
                     const json = JSON.parse(e.target.result);
-                    // Fill fields
                     document.getElementById('dev-id').value = file.name.replace('.json', '');
                     document.getElementById('status').value = json.active ? "true" : "false";
                     
@@ -115,6 +152,13 @@
                     document.getElementById('cust-name').value = json.name || '';
                     document.getElementById('comp-name').value = json.company || '';
                     document.getElementById('cust-id').value = json.customerId || '';
+
+                    if (json.platform) {
+                        document.getElementById('os-info').value = json.platform.os || '';
+                        document.getElementById('browser-info').value = json.platform.browser || '';
+                        document.getElementById('runtime-info').value = json.platform.runtime || '';
+                        document.getElementById('agent-info').value = json.platform.userAgent || '';
+                    }
                     
                     toggleExpiryInput();
                     alert("License loaded successfully!");
@@ -134,7 +178,7 @@
             
             let expiryTs;
             if (expiryType === 'none') {
-                expiryTs = 9999999999999; // Infinite sentinel
+                expiryTs = 9999999999999;
             } else {
                 const days = parseInt(document.getElementById('expiry-days').value);
                 expiryTs = Date.now() + (days * 24 * 60 * 60 * 1000);
@@ -147,9 +191,15 @@
                 name: document.getElementById('cust-name').value.trim(),
                 company: document.getElementById('comp-name').value.trim(),
                 customerId: document.getElementById('cust-id').value.trim(),
+                platform: {
+                    os: document.getElementById('os-info').value.trim(),
+                    browser: document.getElementById('browser-info').value.trim(),
+                    runtime: document.getElementById('runtime-info').value.trim(),
+                    userAgent: document.getElementById('agent-info').value.trim()
+                },
                 message: active ? "License Verified" : "License Revoked by Admin",
                 generated: new Date().toISOString(),
-                version: "1.1"
+                version: "1.2"
             };
 
             document.getElementById('json-out').value = JSON.stringify(currentJson, null, 2);

@@ -2,12 +2,11 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'nl.fotolerant.photoverify',
-  appName: 'PhotoVerify v0.9.9',
+  appName: 'PhotoVerify',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true,
-    allowMixedContent: true
+    hostname: 'photoverify.local'
   }
 };
 

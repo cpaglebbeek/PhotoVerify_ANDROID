@@ -7,8 +7,8 @@ android {
         applicationId "nl.fotolerant.photoverify"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 39
-        versionName "1.2.8"
+        versionCode 41
+        versionName "1.3.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -30,7 +30,8 @@ android {
             def dateId = new Date().format('HHmm')
             applicationIdSuffix ".d${dateId}"
             versionNameSuffix "-debug-${dateId}"
-        }        release {
+        }
+        release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
