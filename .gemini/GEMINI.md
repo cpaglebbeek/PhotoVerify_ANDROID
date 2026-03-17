@@ -1,4 +1,4 @@
-# Project Context: PhotoVerify (Picture_Copyright)
+# Project Context: PhotoVerify_ANDROID (formerly Picture_Copyright)
 
 ## Foundational Mandates
 - **Build Definition:** A "build" request ALWAYS means generating a final APK file in the `android` directory.
@@ -8,7 +8,11 @@
 - **UUID Forced:** EVERY debug build must use a unique Application ID (suffix) to ensure Android performs a fresh installation instead of a cached update.
 - **Incremental:** ONLY perform a build if changes exist, unless a "force build" is requested.
 - **Versioning:** Always increment `versionName` in `android/app/build.gradle` and `src/version.json` before a build.
-- **Over en uit:** Commando voor Finale Synchronisatie (Logs, Versions, Git, Build).
+- **Over en uit:** Commando voor Finale Synchronisatie. Dit omvat:
+    1. Bijwerken van `GEMINI_LOG.md`, `versions.json` en `PHOTOVERIFY_REPO.json`.
+    2. Git commit van alle wijzigingen.
+    3. **Git push** naar de geconfigureerde remote `origin`.
+    4. Bevestiging van de laatste unieke build.
 
 ## Technical Environment
 - **Java Runtime:** Use Java 21 from Homebrew.

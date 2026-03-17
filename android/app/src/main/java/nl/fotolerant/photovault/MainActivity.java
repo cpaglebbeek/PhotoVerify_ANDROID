@@ -58,31 +58,42 @@ public class MainActivity extends BridgeActivity {
         
         startActivityForResult(intent, RCODE_SELECT_FILE);
     }
+public void saveFromTempFile(String tempPath, String filename, String mimeType) throws Exception {
+    String uriString = getSharedPreferences("PhotoVerify", MODE_PRIVATE).getString("folder_uri", null);
+    Uri targetUri;
+    DocumentFile targetDir;
 
-    public void saveFromTempFile(String tempPath, String filename, String mimeType) throws Exception {
-        String uriString = getSharedPreferences("PhotoVerify", MODE_PRIVATE).getString("folder_uri", null);
-        if (uriString == null) throw new Exception("No storage folder selected.");
+    if (uriString != null) {
+        targetUri = Uri.parse(uriString);
+        targetDir = DocumentFile.fromTreeUri(this, targetUri);
+    } else {
+        // Default: Try to use public Documents folder
+        File publicDocs = new File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "_PhotoVerify");
+        if (!publicDocs.exists()) publicDocs.mkdirs();
 
-        Uri treeUri = Uri.parse(uriString);
-        DocumentFile pickedDir = DocumentFile.fromTreeUri(this, treeUri);
-        
-        String cleanName = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
-        DocumentFile newFile = pickedDir.createFile(mimeType, cleanName);
-        if (newFile == null) throw new Exception("Failed to create file in selected folder.");
-
-        File src = new File(tempPath);
-        if (!src.exists()) throw new Exception("Source file not found: " + tempPath);
-
-        try (InputStream in = new FileInputStream(src);
-             OutputStream out = getContentResolver().openOutputStream(newFile.getUri())) {
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-            triggerJs("window.dispatchEvent(new CustomEvent('safSaveSuccess', { detail: { name: '" + cleanName + "' } }));");
-        }
+        // If we can't write to public docs directly (EACCESS), this will throw later or return null
+        targetDir = DocumentFile.fromFile(publicDocs);
     }
+
+    if (targetDir == null || !targetDir.canWrite()) {
+        throw new Exception("Permission Denied: Cannot write to target directory.");
+    }
+
+    String cleanName = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+    DocumentFile newFile = targetDir.createFile(mimeType, cleanName);
+    if (newFile == null) throw new Exception("Failed to create file. Permission may be required.");
+
+    File src = new File(tempPath);
+    try (InputStream in = new FileInputStream(src);
+         OutputStream out = getContentResolver().openOutputStream(newFile.getUri())) {
+        byte[] buf = new byte[8192];
+        int len;
+        while ((len = in.read(buf)) > 0) {
+            out.write(buf, 0, len);
+        }
+        triggerJs("window.dispatchEvent(new CustomEvent('safSaveSuccess', { detail: { name: '" + cleanName + "' } }));");
+    }
+}
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {

@@ -7,8 +7,8 @@ android {
         applicationId "nl.fotolerant.photovault"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 37
-        versionName "1.2.6"
+        versionCode 39
+        versionName "1.2.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -19,7 +19,7 @@ android {
 
         applicationVariants.all { variant ->
         variant.outputs.all {
-            def buildName = "Joe_Sync"
+            def buildName = "Cleveland"
             def date = new Date().format('HHmm')
             outputFileName = "PhotoVerify-v${variant.versionName}-${buildName}-${date}-${variant.name}.apk"
         }
@@ -30,8 +30,7 @@ android {
             def dateId = new Date().format('HHmm')
             applicationIdSuffix ".d${dateId}"
             versionNameSuffix "-debug-${dateId}"
-        }
-        release {
+        }        release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

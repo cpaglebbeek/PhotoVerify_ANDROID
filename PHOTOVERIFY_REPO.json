@@ -1,9 +1,9 @@
 {
   "project": {
-    "name": "PhotoVerify",
-    "codename": "Joe_Sync",
-    "version": "1.2.6",
-    "status": "Final Sync Milestone (v1.2.6)",
+    "name": "PhotoVerify_ANDROID",
+    "codename": "Cleveland",
+    "version": "1.2.8",
+    "status": "Production Release (v1.2.8)",
     "philosophy": "Democratic Forensic Suite for individual creators. Sovereignty first: 100% local processing, no cloud dependency.",
     "architecture": "Capacitor 8 (React 19 + TypeScript 5) with Robust Java Native Bridge for SAF (Storage Access Framework)."
   },
@@ -13,7 +13,7 @@
       "name": "Invisible Stamp (LSB+)",
       "functional": "Verbergt een unieke 6-cijferige code direct in de pixel-luminantie.",
       "technical": "4-bit differential encoding in de blauwe kanalen van de interior pixels. Stable against re-saves.",
-      "logic": "Enforced 6-character hex/numeric input; padded with zeros if necessary."
+      "logic": "Auto-generated 6-character hex code based on (Date.now() XOR Math.random()). Offered fresh on each shield entry unless a hard default is set."
     },
     {
       "layer": 2,
@@ -47,7 +47,7 @@
     {
       "id": "UI_ABOUT_INFO",
       "functional": "Over & Help Informatie",
-      "design": "Toont missie, versie (v1.2.6) en build-codenaam (Joe_Sync). Nu inclusief gedetailleerde licentie-data.",
+      "design": "Toont missie, versie (v1.2.8) en build-codenaam (Cleveland). Nu inclusief gedetailleerde licentie-data.",
       "technical": "App.tsx (Mode: ABOUT/INFO). Geeft Device Owner (Native), Status, Expiratie, Klantgegevens en Grace Period weer."
     },
     {
@@ -72,13 +72,19 @@
       "id": "SYS_SAF_BRIDGE",
       "functional": "Native Storage Bridge (SAF)",
       "design": "Veilige bestandstoegang op Android; standaard Documents/_PhotoVerify locatie.",
-      "technical": "NativeBridgePlugin.java + MainActivity.java. Re-activated UUID Forced identity to bypass caching."
+      "technical": "NativeBridgePlugin.java + MainActivity.java. Robust Private Cache -> Native Copy pattern."
     },
     {
       "id": "SYS_SHARE_RECEIVER",
       "functional": "Android Intent Receiver",
       "design": "Ontvangt foto's en ZIP's; automatische wizard selectie met cold-start retry logica.",
       "technical": "MainActivity.java (postDelayed 1s/2.5s retry) + App.tsx (handleIncomingUri)."
+    },
+    {
+      "id": "UTIL_ZIPPER",
+      "functional": "Evidence Bundling",
+      "design": "Creëert een gestandaardiseerd forensisch pakket (.zip).",
+      "technical": "zipper.ts. Supports optional border files; consistent naming."
     },
     {
       "id": "UTIL_VALIDATION",
@@ -104,12 +110,13 @@
     },
     {
       "file": "src/version.json",
-      "purpose": "Single source for the current version number (1.2.6)."
+      "purpose": "Single source for the current version number (1.2.8)."
     }
   ],
   "version_history": [
+    { "version": "1.2.8", "codename": "Cleveland", "feature": "Dynamic unique stamp generation (Time + Random XOR) to ensure fresh codes for every photo." },
+    { "version": "1.2.7", "codename": "Peter_Final", "feature": "About screen license passport fixes and default Documents storage logic." },
     { "version": "1.2.6", "codename": "Joe_Sync", "feature": "Final Sync Milestone: Solved persistent v1.0.5 cache issue via deep purge and UUID forced identity." },
-    { "version": "1.2.5", "codename": "Peter_Final", "feature": "Enhanced Licensing: Added Device Owner, User/Org details, and Grace Period to About screen. Default Documents storage." },
-    { "version": "1.2.4", "codename": "Quagmire_Final", "feature": "Consolidated Release with UUID-Forced ID to ensure clean install." }
+    { "version": "1.2.5", "codename": "Peter_Final", "feature": "Enhanced Licensing: Added Device Owner, User/Org details, and Grace Period to About screen. Default Documents storage." }
   ]
 }

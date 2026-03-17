@@ -12,50 +12,39 @@ const NativeBridge = registerPlugin<NativeBridgePlugin>('NativeBridge');
 
 export const saveFile = async (dataUrl: string, fileName: string, type: 'image' | 'deed' = 'image') => {
   if (Capacitor.isNativePlatform()) {
-    const safUri = localStorage.getItem('saf_folder_uri');
     const base64Data = dataUrl.split(',')[1];
     const mimeType = type === 'image' ? 'image/png' : 'application/zip';
 
     try {
       // 1. Write the file to the app's private CACHE directory first.
-      // This is fast, doesn't need permissions, and handles large data well.
       const tempFile = await Filesystem.writeFile({
         path: `temp_${Date.now()}_${fileName}`,
         data: base64Data,
         directory: Directory.Cache
       });
 
-      // 2. Try the Native Bridge to copy it to the user's selected SAF folder
-      if (safUri) {
-        console.log(`[SAF] Requesting native copy for ${fileName} via SAF...`);
-        try {
-          await NativeBridge.saveFileFromPath({
-            filename: fileName,
-            tempPath: tempFile.uri,
-            mimeType: mimeType
-          });
-          
-          addToHistory({ filename: fileName, type, dataUrl: type === 'deed' ? dataUrl : undefined });
-          
-          // Cleanup temp file
-          await Filesystem.deleteFile({
-            path: tempFile.uri
-          }).catch(e => console.warn('Temp cleanup failed', e));
-          
-          return;
-        } catch (nativeErr) {
-          console.error('[SAF] Native bridge failed:', nativeErr);
-          // Fall through to alert
-        }
-      }
-
-      // If we are here, either no SAF folder is set or the bridge failed.
-      // On Android 11+, Directory.Documents will fail with EACCESS.
-      // We inform the user they MUST select a folder.
-      alert(`Save failed. Please ensure a storage folder is selected in the app startup. The system restricts direct access to your Documents folder.`);
-      
-      // Trigger picker if nothing is set
-      if (!safUri) {
+      // 2. Try the Native Bridge to copy it to the SAF folder
+      // If safUri is null, the bridge will attempt to use default Documents/_PhotoVerify
+      console.log(`[SAF] Requesting native copy for ${fileName}...`);
+      try {
+        await NativeBridge.saveFileFromPath({
+          filename: fileName,
+          tempPath: tempFile.uri,
+          mimeType: mimeType
+        });
+        
+        addToHistory({ filename: fileName, type, dataUrl: type === 'deed' ? dataUrl : undefined });
+        
+        // Cleanup temp file
+        await Filesystem.deleteFile({
+          path: tempFile.uri
+        }).catch(e => console.warn('Temp cleanup failed', e));
+        
+        return;
+      } catch (nativeErr) {
+        console.error('[SAF] Native bridge failed:', nativeErr);
+        // If native bridge fails with permission error, it means we MUST ask the user
+        alert(`Storage access required. Please select a folder (e.g. your Documents folder) to allow PhotoVerify to save files.`);
         await NativeBridge.openFolderPicker().catch(e => console.error('Picker call failed', e));
       }
 
