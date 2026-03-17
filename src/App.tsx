@@ -415,7 +415,7 @@ function App() {
       <main className="wizard-container">
         {mode === 'ABOUT' && (
           <div className="card-glass text-left">
-            <h2 style={{ color: '#60a5fa' }}>❓ About PhotoVault</h2>
+            <h2 style={{ color: '#60a5fa' }}>❓ About PhotoVerify</h2>
             <div style={{ background: 'rgba(0,0,0,0.4)', padding: '15px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #334155' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.85rem' }}>
                 <div><label style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>VERSION</label><strong style={{ color: '#10b981' }}>v{versionData.current}</strong></div>
@@ -441,7 +441,7 @@ function App() {
                 <strong style={{ fontSize: '0.75rem', color: license?.isGracePeriod ? '#fbbf24' : '#10b981' }}>{license?.isGracePeriod ? '⚠️ ACTIVE (OFFLINE)' : '✅ INACTIVE (SYNCED)'}</strong>
               </div>
             </div>
-            <p>PhotoVault is a "Democratic Forensic Suite" for the individual creator, providing tools that were previously only available to large corporations.</p>
+            <p>PhotoVerify is a "Democratic Forensic Suite" for the individual creator, providing tools that were previously only available to large corporations.</p>
             <button className="btn btn-primary mt-1" onClick={() => setMode('START')}>Got it!</button>
           </div>
         )}
@@ -449,7 +449,7 @@ function App() {
         {mode === 'INFO' && (
           <div className="card-glass text-left">
             <h2 style={{ color: '#fbbf24' }}>ℹ️ Scientific Foundation</h2>
-            <p>PhotoVault protects your vision through three distinct cryptographic layers:</p>
+            <p>PhotoVerify protects your vision through three distinct cryptographic layers:</p>
             <div style={{ marginTop: '15px' }}><h4 style={{ color: '#60a5fa', margin: '0' }}>🛡️ Layer 1: Invisible Stamp</h4><p style={{ fontSize: '0.85rem', marginTop: '5px' }}>A 4-bit differential encoding hides a secret 6-character code (UID) directly in the pixel luminance.</p></div>
             <div style={{ marginTop: '15px' }}><h4 style={{ color: '#60a5fa', margin: '0' }}>🔍 Layer 2: Visual DNA (pHash)</h4><p style={{ fontSize: '0.85rem', marginTop: '5px' }}>Uses a 16x16 grid (256 bits) to identify the "concept" of the photo.</p></div>
             <div style={{ marginTop: '15px' }}><h4 style={{ color: '#60a5fa', margin: '0' }}>📐 Layer 3: Physical Border</h4><p style={{ fontSize: '0.85rem', marginTop: '5px' }}>A 1-pixel frame is extracted as a unique "puzzle piece".</p></div>

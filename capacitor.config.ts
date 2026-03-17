@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'nl.fotolerant.photovault',
+  appId: 'nl.fotolerant.photoverify',
   appName: 'PhotoVerify v0.9.9',
   webDir: 'dist',
   server: {

@@ -1,4 +1,4 @@
-package nl.fotolerant.photovault;
+package nl.fotolerant.photoverify;
 
 import android.app.Activity;
 import android.content.Intent;

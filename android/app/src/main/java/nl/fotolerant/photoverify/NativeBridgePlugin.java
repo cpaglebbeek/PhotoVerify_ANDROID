@@ -1,4 +1,4 @@
-package nl.fotolerant.photovault;
+package nl.fotolerant.photoverify;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
