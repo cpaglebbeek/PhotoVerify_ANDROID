@@ -20,7 +20,19 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initializeDefaultStorage();
         handleIntent(getIntent());
+    }
+
+    private void initializeDefaultStorage() {
+        String uriString = getSharedPreferences("PhotoVerify", MODE_PRIVATE).getString("folder_uri", null);
+        if (uriString == null) {
+            File publicDocs = new File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "_PhotoVerify");
+            if (!publicDocs.exists()) {
+                publicDocs.mkdirs();
+            }
+            getSharedPreferences("PhotoVerify", MODE_PRIVATE).edit().putString("folder_uri", Uri.fromFile(publicDocs).toString()).apply();
+        }
     }
 
     @Override
@@ -31,11 +43,6 @@ public class MainActivity extends BridgeActivity {
 
     public void openFolderPicker() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        
-        // Try to set initial location to Documents folder for user convenience
-        Uri documentsUri = Uri.parse("content://com.android.externalstorage.documents/document/primary:Documents");
-        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, documentsUri);
-        
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);

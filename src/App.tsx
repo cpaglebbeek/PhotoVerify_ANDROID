@@ -72,7 +72,7 @@ function App() {
   const [deviceInfo, setDeviceInfo] = useState<{ name?: string; model?: string }>({});
   const [sharedImage, setSharedImage] = useState<HTMLImageElement | null>(null);
   const [sharedFilename, setSharedFilename] = useState<string>('photo.png');
-  const [sharedUid, setSharedUid] = useState<string>(localStorage.getItem('default_stamp_code') || generateUniqueStamp());
+  const [sharedUid, setSharedUid] = useState<string>(generateUniqueStamp());
   const [useBorder, setUseBorder] = useState(true);
   const [useStamp, setUseStamp] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -184,7 +184,7 @@ function App() {
   }, [startup]);
 
   useEffect(() => {
-    if (mode === 'SHIELD_AUTO' && !localStorage.getItem('default_stamp_code')) {
+    if (mode === 'SHIELD_AUTO') {
       setSharedUid(generateUniqueStamp());
     }
   }, [mode]);
@@ -466,11 +466,10 @@ function App() {
               <label>License Server:<input type="text" value={licenseServer} onChange={e => setLicenseServer(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} /></label>
               <label>UI Config URL:<input type="text" value={uiUrl} onChange={e => setUiUrl(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} /></label>
               <label>Content Config URL:<input type="text" value={contentUrl} onChange={e => setContentUrl(e.target.value)} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px' }} /></label>
-              <label>Default Stamp Code:<input type="text" value={sharedUid} onChange={e => { const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, ''); if (val.length <= 6) setSharedUid(val); }} maxLength={6} style={{ width: '100%', background: '#000', color: '#fff', border: '1px solid #334155', padding: '8px', fontFamily: 'monospace' }} /></label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px' }}>
               <button className="btn btn-secondary" onClick={() => startup(true)} style={{ border: '1px solid #60a5fa', color: '#60a5fa' }}>🔄 FETCH / UPDATE</button>
-              <button className="btn btn-primary" onClick={() => { localStorage.setItem('license_server_url', licenseServer); localStorage.setItem('ui_config_url', uiUrl); localStorage.setItem('content_config_url', contentUrl); localStorage.setItem('default_stamp_code', sharedUid); alert("Settings Committed. App will reload."); window.location.reload(); }}>💾 SAVE / COMMIT</button>
+              <button className="btn btn-primary" onClick={() => { localStorage.setItem('license_server_url', licenseServer); localStorage.setItem('ui_config_url', uiUrl); localStorage.setItem('content_config_url', contentUrl); alert("Settings Committed. App will reload."); window.location.reload(); }}>💾 SAVE / COMMIT</button>
             </div>
             <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
               <button className="btn btn-primary" onClick={() => NativeBridge.openFolderPicker()} style={{ width: '100%', marginBottom: '10px', background: '#2563eb' }}>📁 CHANGE STORAGE FOLDER</button>
