@@ -49,7 +49,7 @@ export default function ZipVerifier({ onStart, onProgress, onEnd }: Props) {
       const deedName = findFile("_deed.json") || findFile("_metadata.json");
 
       if (!originalName || !interiorName || !borderName || !deedName) {
-        throw new Error("Missing files in ZIP bundle. Ensure this is a valid PhotoVault evidence package.");
+        throw new Error("Missing files in ZIP bundle. Ensure this is a valid PhotoVerify evidence package.");
       }
 
       const originalFile = zip.file(originalName)!;
@@ -139,7 +139,7 @@ export default function ZipVerifier({ onStart, onProgress, onEnd }: Props) {
     <div className="component-container">
       <h2 style={{ color: '#60a5fa' }}>⚡ One-Click Bundle Audit</h2>
       <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-        Select a PhotoVault evidence package (.zip) to verify all security layers.
+        Select a PhotoVerify evidence package (.zip) to verify all security layers.
       </p>
       
       <div className="input-group" style={{ marginTop: '15px', textAlign: 'center' }}>

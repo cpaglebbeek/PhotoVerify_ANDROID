@@ -1,6 +1,6 @@
 {
-  "appId": "nl.fotolerant.photovault",
-  "appName": "PhotoVault",
+  "appId": "nl.fotolerant.photoverify",
+  "appName": "PhotoVerify",
   "webDir": "dist",
   "bundledWebRuntime": false
 }

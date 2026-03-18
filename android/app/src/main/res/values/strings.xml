@@ -4,6 +4,6 @@
     <string name="title_activity_main">PhotoVerify</string>
     <string name="family_guy_phrase">Victory shall be mine!</string>
     <string name="quagmire_phrase">Giggity Giggity Goo!</string>
-    <string name="package_name">nl.fotolerant.photovault</string>
-    <string name="custom_url_scheme">nl.fotolerant.photovault</string>
+    <string name="package_name">nl.fotolerant.photoverify</string>
+    <string name="custom_url_scheme">nl.fotolerant.photoverify</string>
 </resources>

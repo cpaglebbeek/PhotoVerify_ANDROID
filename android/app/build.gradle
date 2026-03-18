@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "nl.fotolerant.photovault"
+    namespace = "nl.fotolerant.photoverify"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "nl.fotolerant.photovault"
+        applicationId "nl.fotolerant.photoverify"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 16
