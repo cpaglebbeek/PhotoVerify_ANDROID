@@ -435,11 +435,12 @@ function App() {
     };
     
     await bundleEvidence(
-      canvas.toDataURL('image/png'), 
-      borderCanvas ? borderCanvas.toDataURL('image/png') : null, 
-      interiorCanvas.toDataURL('image/png'), 
-      deed, 
-      `${useStamp ? finalCode : 'NOSTAMP'}_${sharedFilename}`
+      canvas.toDataURL('image/png'),
+      borderCanvas ? borderCanvas.toDataURL('image/png') : null,
+      interiorCanvas.toDataURL('image/png'),
+      deed,
+      `${useStamp ? finalCode : 'NOSTAMP'}_${sharedFilename}`,
+      (p: number) => setProgress(p)
     );
     
     endProc();
